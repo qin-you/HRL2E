@@ -15,8 +15,8 @@ from utils import ParamDict, get_env
 # =============================
 parser = argparse.ArgumentParser(description="Specific Hyper-Parameters for PPO training. ")
 # >> experiment parameters
-parser.add_argument('--param_id', type=int, help='index of parameter that will be loaded from local csv file for this run')
-parser.add_argument('--alg', help='select experiment alg: hiro_train, hiro_eval or td3_train, td3_eval')
+parser.add_argument('--param_id', default=3, type=int, help='index of parameter that will be loaded from local csv file for this run')
+parser.add_argument('--alg', default='hiro_train', help='select experiment alg: hiro_train, hiro_eval or td3_train, td3_eval')
 parser.add_argument('--env_name', help='environment name for this run, choose from AntPush, AntFall, AntMaze')
 parser.add_argument('--state_dim', type=int, help='environment observation state dimension')
 parser.add_argument('--action_dim', type=int, help='agent action dimension')
