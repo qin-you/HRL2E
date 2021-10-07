@@ -3,6 +3,7 @@ Off-Policy Method (TD3) Experience Memory Buffer
 """
 
 
+from os import device_encoding
 import torch
 import numpy as np
 
@@ -107,7 +108,7 @@ class ExperienceBufferHigh:
     DevNotes:
         - hold cpu data in memory, transform when output
     """
-    def __init__(self, capacity, state_dim, goal_dim, use_cuda):
+    def __init__(self, capacity, state_dim, goal_dim, use_cuda, c, action_dim):
         # initialize
         self.capacity = int(capacity)
         self.state_dim = state_dim
@@ -119,11 +120,13 @@ class ExperienceBufferHigh:
         self.reward = torch.zeros(capacity, 1)
         self.state_end = torch.zeros(capacity, state_dim)
         self.done = torch.zeros(capacity, 1)
+        self.s_seq = torch.zeros(capacity, c, state_dim)     
+        self.a_seq = torch.zeros(capacity, c, action_dim)
         # probe device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if use_cuda else "cpu"
         # self.device = "cpu"
 
-    def add(self, state_start, goal_start, reward, state_end, done):
+    def add(self, state_start, goal_start, reward, state_end, done, s_arr, a_arr):
         # add step experience (off-policy single steps)
         ind = self.offset
         self.state_start[ind] = state_start.cpu()
@@ -131,6 +134,8 @@ class ExperienceBufferHigh:
         self.reward[ind] = reward.cpu()
         self.state_end[ind] = state_end.cpu()
         self.done[ind] = done.cpu()
+        self.s_seq[ind] = s_arr.cpu()
+        self.a_seq[ind] = a_arr.cpu()
         self.offset = (self.offset + 1) % self.capacity
 
     def sample(self, batch_size):
@@ -140,7 +145,9 @@ class ExperienceBufferHigh:
             self.goal_start[ind].to(self.device),
             self.reward[ind].to(self.device),
             self.state_end[ind].to(self.device),
-            self.done[ind].to(self.device)
+            self.done[ind].to(self.device),
+            self.s_seq[ind].to(self.device),
+            self.a_seq[ind].to(self.device)
         )
 
 

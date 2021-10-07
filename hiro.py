@@ -205,7 +205,7 @@ def create_rl_components(params, device):
     critic_eval_h = CriticHigh(state_dim, goal_dim).to(device)
     critic_target_h = copy.deepcopy(critic_eval_h).to(device)
     critic_optimizer_h = torch.optim.Adam(critic_eval_h.parameters(), lr=policy_params.critic_lr)
-    experience_buffer_h = ExperienceBufferHigh(int(policy_params.max_timestep / policy_params.c / 3) + 1, state_dim, goal_dim, params.use_cuda)
+    experience_buffer_h = ExperienceBufferHigh(int(policy_params.max_timestep / policy_params.c / 3) + 1, state_dim, goal_dim, params.use_cuda, policy_params.c, action_dim)
 
     return [step, episode_num_h,
             actor_eval_l, actor_target_l, actor_optimizer_l, critic_eval_l, critic_target_l, critic_optimizer_l, experience_buffer_l,
@@ -291,6 +291,14 @@ def off_policy_correction(actor, action_sequence, state_sequence, goal_dim, goal
     goal_hat = candidates[index]
     return goal_hat.cpu(), updated
 
+def correction_before_train(actor, action_arr, state_arr, goal_dim, goal_arr, end_states, max_goal, device, batch_size):
+    # batchsize * dim or batchsize*c*dim
+    goal_hat_arr = torch.zeros(batch_size, goal_dim)
+    for i in range(batch_size):
+        goal, _ = off_policy_correction(actor, action_arr[i], state_arr[0], goal_dim, goal_arr[i], end_states[i], max_goal, device)
+        goal_hat_arr[i] = goal
+    return goal_hat_arr
+
 
 def step_update_l(experience_buffer, batch_size, total_it, actor_eval, actor_target, critic_eval, critic_target, critic_optimizer, actor_optimizer, params):
     # initialize
@@ -331,12 +339,14 @@ def step_update_l(experience_buffer, batch_size, total_it, actor_eval, actor_tar
     return y.detach(), critic_loss.detach(), actor_loss
 
 
-def step_update_h(experience_buffer, batch_size, total_it, actor_eval, actor_target, critic_eval, critic_target, critic_optimizer, actor_optimizer, params):
+def step_update_h(experience_buffer, batch_size, total_it, actor_eval, actor_target, critic_eval, critic_target, critic_optimizer, actor_optimizer, actor_l, params):
     policy_params = params.policy_params
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if params.use_cuda else "cpu"
     max_goal = Tensor(policy_params.max_goal).to(device)
     # sample mini-batch transitions
-    state_start, goal, reward, state_end, done = experience_buffer.sample(batch_size)
+    state_start, goal_arr, reward, state_end, done, state_arr, action_arr = experience_buffer.sample(batch_size)
+    # correction
+    goal = correction_before_train(actor_l, action_arr, state_arr, goal_dim, goal_arr, state_end, max_goal, device, batch_size)
     with torch.no_grad():
         # select action according to policy and add clipped noise
         policy_noise = Tensor(np.random.normal(loc=0, scale=policy_params.policy_noise_std, size=params.goal_dim).astype(np.float32) * policy_params.policy_noise_scale) \
@@ -488,8 +498,9 @@ def train(params):
                 next_goal = (actor_eval_h(next_state.to(device)).detach().cpu() + expl_noise_goal).squeeze().to(device)
                 next_goal = torch.min(torch.max(next_goal, -max_goal), max_goal)
             # 2.2.8 collect high-level experience
-            goal_hat, updated = off_policy_correction(en_agents[0]['actor_target_l'], action_sequence, state_sequence, goal_dim, goal_sequence[0], next_state, max_goal, device)
-            experience_buffer_h.add(state_sequence[0], goal_hat, episode_reward_h, next_state, done_h)
+            # goal_hat, updated = off_policy_correction(en_agents[0]['actor_target_l'], action_sequence, state_sequence, goal_dim, goal_sequence[0], next_state, max_goal, device)
+            state_arr, action_arr = torch.stack(state_sequence), torch.stack(action_sequence)
+            experience_buffer_h.add(state_sequence[0], goal_sequence[0], episode_reward_h, next_state, done_h, state_arr, action_arr)
             # if state_print_trigger.good2log(t, 500): print_cmd_hint(params=[state_sequence, goal_sequence, action_sequence, intri_reward_sequence, updated, goal_hat, reward_h_sequence], location='training_state')
             # 2.2.9 reset segment arguments & log (reward)
             state_sequence, action_sequence, intri_reward_sequence, goal_sequence, reward_h_sequence = [], [], [], [], []   
@@ -509,7 +520,7 @@ def train(params):
             target_q_l, critic_loss_l, actor_loss_l = en_utils.en_update(experience_buffer_l, batch_size, total_it, params, en_agents)
         if t >= start_timestep and (t + 1) % c == 0:
             target_q_h, critic_loss_h, actor_loss_h = \
-                step_update_h(experience_buffer_h, batch_size, total_it, actor_eval_h, actor_target_h, critic_eval_h, critic_target_h, critic_optimizer_h, actor_optimizer_h, params)
+                step_update_h(experience_buffer_h, batch_size, total_it, actor_eval_h, actor_target_h, critic_eval_h, critic_target_h, critic_optimizer_h, actor_optimizer_h, en_agents[0]['actor_target_l'], params)
         # 2.2.12 log training curve (inter_loss)
         if t >= start_timestep and t % log_interval == 0:
             record_logger(args=[target_q_l, critic_loss_l, actor_loss_l, target_q_h, critic_loss_h, actor_loss_h], option='inter_loss', step=t-start_timestep)
