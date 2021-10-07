@@ -381,6 +381,11 @@ def step_update_h(experience_buffer, batch_size, total_it, actor_eval, actor_tar
 
 
 def evaluate(agents_l, en_utils, actor_h, params, target_pos, device):
+    
+
+
+    labels = [str(i) for i in range(len(agents_l))]
+    values = [0 for i in range(len(agents_l))]
     policy_params = params.policy_params
     print("\n    > evaluating policies...")
     success_number = 0
@@ -399,6 +404,7 @@ def evaluate(agents_l, en_utils, actor_h, params, target_pos, device):
                 t += 1
                 # action = actor_l(obs, goal).to(device)              
                 action, agent_ind = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True)
+                values[en_utils.cur_agent_ind] += 1
                 next_state, _, _, _ = env.step(action.detach().cpu())
                 next_state = Tensor(next_state).to(device)
                 done = success_judge(next_state, goal_dim, target_pos)
@@ -407,6 +413,9 @@ def evaluate(agents_l, en_utils, actor_h, params, target_pos, device):
             if done:
                 success_number += 1
         print("        > evaluated {} episodes".format(i * 5 + j + 1))
+    data = [[label, val] for (label, val) in zip(labels, values)]
+    table = wandb.Table(data=data, columns = ["label", "value"])
+    wandb.log({"agent use" : wandb.plot.bar(table, "label", "value", title="agent use count")})
     success_rate = success_number / 20
     print("    > finished evaluation, success rate: {}\n".format(success_rate))
     return success_rate
@@ -554,10 +563,10 @@ def train(params):
             #                 actor_target_h, critic_target_h, actor_optimizer_h, critic_optimizer_h, experience_buffer_h,
             #                 logger, params)
         if t > start_timestep and evalutil_logger.good2log(t, evaluation_interval):
-            success_rate = evaluate(en_agents, deepcopy(en_utils), actor_target_h, params, target_pos, device)                 # TODO
+            success_rate = evaluate(en_agents, deepcopy(en_utils), actor_target_h, params, target_pos, device)                 
     # 2.3 final log (episode videos)
     logger = [time_logger, state_print_trigger, video_log_trigger, checkpoint_logger, evalutil_logger, episode_num_h]
-    # save_checkpoint(max_timestep, actor_target_l, critic_target_l, actor_optimizer_l, critic_optimizer_l, experience_buffer_l,      # TODO temporary not save checkpoint
+    # save_checkpoint(max_timestep, actor_target_l, critic_target_l, actor_optimizer_l, critic_optimizer_l, experience_buffer_l,      
     #                 actor_target_h, critic_target_h, actor_optimizer_h, critic_optimizer_h, experience_buffer_h,
     #                 logger, params)
     for i in range(3):
