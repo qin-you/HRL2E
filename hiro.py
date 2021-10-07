@@ -343,6 +343,7 @@ def step_update_h(experience_buffer, batch_size, total_it, actor_eval, actor_tar
     policy_params = params.policy_params
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if params.use_cuda else "cpu"
     max_goal = Tensor(policy_params.max_goal).to(device)
+    goal_dim = params.goal_dim
     # sample mini-batch transitions
     state_start, goal_arr, reward, state_end, done, state_arr, action_arr = experience_buffer.sample(batch_size)
     # correction
