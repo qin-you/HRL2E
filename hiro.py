@@ -289,7 +289,7 @@ def off_policy_correction(actor, action_sequence, state_sequence, goal_dim, goal
     index = int(np.argmax(surr_prob))
     updated = (index != 9)
     goal_hat = candidates[index]
-    return goal_hat, updated
+    return goal_hat.cpu(), updated
 
 def correction_before_train(actor, action_arr, state_arr, goal_dim, goal_arr, end_states, max_goal, device, batch_size):
     # batchsize * dim or batchsize*c*dim
@@ -347,7 +347,7 @@ def step_update_h(experience_buffer, batch_size, total_it, actor_eval, actor_tar
     # sample mini-batch transitions
     state_start, goal_arr, reward, state_end, done, state_arr, action_arr = experience_buffer.sample(batch_size)
     # correction
-    goal = correction_before_train(actor_l, action_arr, state_arr, goal_dim, goal_arr, state_end, max_goal, device, batch_size)
+    goal = correction_before_train(actor_l, action_arr, state_arr, goal_dim, goal_arr, state_end, max_goal, device, batch_size).to(device)
     with torch.no_grad():
         # select action according to policy and add clipped noise
         policy_noise = Tensor(np.random.normal(loc=0, scale=policy_params.policy_noise_std, size=params.goal_dim).astype(np.float32) * policy_params.policy_noise_scale) \
