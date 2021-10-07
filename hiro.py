@@ -274,8 +274,8 @@ def off_policy_correction(actor, action_sequence, state_sequence, goal_dim, goal
     # return mean.to(device), True
 
     # off-policy correction
-    action_sequence = torch.stack(action_sequence).to(device)
-    state_sequence = torch.stack(state_sequence).to(device)
+    # action_sequence = torch.stack(action_sequence).to(device)
+    # state_sequence = torch.stack(state_sequence).to(device)
     max_goal = max_goal.cpu()
     # prepare candidates
     mean = (end_state - state_sequence[0])[:goal_dim].cpu()
