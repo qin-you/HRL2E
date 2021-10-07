@@ -7,7 +7,7 @@ import numpy as np
 
 class Ensemble_utils:
     def __init__(self):
-        self.n_ensemble = 1
+        self.n_ensemble = 3
         self.cur_agent_ind = torch.randint(0, self.n_ensemble, size=(1,)).item()
         self.epsilon = 1
 
