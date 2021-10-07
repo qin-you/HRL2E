@@ -289,7 +289,7 @@ def off_policy_correction(actor, action_sequence, state_sequence, goal_dim, goal
     index = int(np.argmax(surr_prob))
     updated = (index != 9)
     goal_hat = candidates[index]
-    return goal_hat.cpu(), updated
+    return goal_hat, updated
 
 def correction_before_train(actor, action_arr, state_arr, goal_dim, goal_arr, end_states, max_goal, device, batch_size):
     # batchsize * dim or batchsize*c*dim
