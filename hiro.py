@@ -473,7 +473,7 @@ def train(params):
         else:
             expl_noise_action = np.random.normal(loc=0, scale=expl_noise_std_l, size=action_dim).astype(np.float32)
             # action = (actor_eval_l(state, goal).detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
-            a_tmp, agentl_ind = en_utils.en_pick_action(state, goal, en_agents, max_action, (t+1)%c==1)
+            a_tmp, agentl_ind = en_utils.en_pick_action(state, goal, en_agents, max_action, episode_timestep_h==1)     # episode_timestep_h==1      (t+1)%c==1
             action = (a_tmp.detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
         # 2.2.2 interact environment
         next_state, _, _, info = env.step(action)
@@ -530,7 +530,7 @@ def train(params):
             target_q_l, critic_loss_l, actor_loss_l = en_utils.en_update(experience_buffer_l, batch_size, total_it, params, en_agents) 
         if t >= start_timestep and (t + 1) % c == 0:
             target_q_h, critic_loss_h, actor_loss_h = \
-                step_update_h(experience_buffer_h, batch_size, total_it, actor_eval_h, actor_target_h, critic_eval_h, critic_target_h, critic_optimizer_h, actor_optimizer_h, en_agents[0]['actor_target_l'], params)
+                step_update_h(experience_buffer_h, batch_size, total_it, actor_eval_h, actor_target_h, critic_eval_h, critic_target_h, critic_optimizer_h, actor_optimizer_h, en_agents[en_utils.cur_agent_ind]['actor_target_l'], params)
         # 2.2.12 log training curve (inter_loss)
         if t >= start_timestep and t % log_interval == 0:
             record_logger(args=[target_q_l, critic_loss_l, actor_loss_l, target_q_h, critic_loss_h, actor_loss_h], option='inter_loss', step=t-start_timestep)
