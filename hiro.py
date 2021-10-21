@@ -15,6 +15,7 @@ from experience_buffer import ExperienceBufferLow, ExperienceBufferHigh
 from ensemble import Ensemble_utils
 from copy import deepcopy
 from math import exp
+import time
 
 
 def save_evaluate_utils(step, actor_l, actor_h, params, file_path=None, file_name=None):
@@ -484,6 +485,7 @@ def train(params):
             a_tmp, agentl_ind = en_utils.en_pick_action(state, goal, en_agents, max_action, (t+1)%c==1)     # episode_timestep_h==1      (t+1)%c==1
             action = (a_tmp.detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
         # 2.2.2 interact environment
+        time.sleep(0.002)                               # bug: mujoco_py.builder.MujocoException: Unknown warning type Time=140.500.Check for Nan in simulation
         next_state, _, _, info = env.step(action)
         next_state = Tensor(next_state).to(device)
         # 2.2.3 compute step arguments
