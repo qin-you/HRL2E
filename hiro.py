@@ -14,6 +14,7 @@ from network import ActorLow, ActorHigh, CriticLow, CriticHigh
 from experience_buffer import ExperienceBufferLow, ExperienceBufferHigh
 from ensemble import Ensemble_utils
 from copy import deepcopy
+from math import exp
 
 
 def save_evaluate_utils(step, actor_l, actor_h, params, file_path=None, file_name=None):
@@ -245,6 +246,13 @@ def intrinsic_reward_simple(state, goal, next_state, goal_dim):
     # low-level dense reward (L2 norm), provided by high-level policy
     return -torch.pow(sum(torch.pow(state[:goal_dim] + goal - next_state[:goal_dim], 2)), 1 / 2)
 
+def heuristic_intrinsic_reward(state, goal, next_state, goal_dim, goal0):
+    d = torch.pow(sum(torch.pow(state[:goal_dim] + goal - next_state[:goal_dim], 2)), 1 / 2)
+    a = next_state[:goal_dim] - state[:goal_dim]
+    b = goal0
+    cos = (a*b).sum() / (torch.pow(torch.pow(a,2).sum(), 1/2) * torch.pow(torch.pow(b,2).sum(), 1/2))
+    return -d * exp(-cos)
+
 
 def dense_reward(state, goal_dim, target=Tensor([0, 19, 0.5])):
     device = state.device
@@ -473,7 +481,7 @@ def train(params):
         else:
             expl_noise_action = np.random.normal(loc=0, scale=expl_noise_std_l, size=action_dim).astype(np.float32)
             # action = (actor_eval_l(state, goal).detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
-            a_tmp, agentl_ind = en_utils.en_pick_action(state, goal, en_agents, max_action, episode_timestep_h==1)     # episode_timestep_h==1      (t+1)%c==1
+            a_tmp, agentl_ind = en_utils.en_pick_action(state, goal, en_agents, max_action, (t+1)%c==1)     # episode_timestep_h==1      (t+1)%c==1
             action = (a_tmp.detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
         # 2.2.2 interact environment
         next_state, _, _, info = env.step(action)
@@ -483,7 +491,9 @@ def train(params):
         done_h = success_judge(next_state, goal_dim, target_pos)
         # reward_h = 1 if done_h else 0           # 0-1 reward for experiment1
         action, reward_h, done_h = Tensor(action), Tensor([reward_h]), Tensor([done_h])
-        intri_reward = intrinsic_reward_simple(state, goal, next_state, goal_dim)
+        goal_sequence.append(goal)
+        # intri_reward = intrinsic_reward_simple(state, goal, next_state, goal_dim)
+        intri_reward = heuristic_intrinsic_reward(state, goal, next_state, goal_dim, goal0=goal_sequence[0])     
         next_goal = h_function(state, goal, next_state, goal_dim)
         done_l = done_judge_low(goal)
         # 2.2.4 collect low-level experience
@@ -492,7 +502,6 @@ def train(params):
         state_sequence.append(state)
         action_sequence.append(action)
         intri_reward_sequence.append(intri_reward)
-        goal_sequence.append(goal)
         reward_h_sequence.append(reward_h)
         # 2.2.6 update low-level segment reward
         episode_reward_l += intri_reward
