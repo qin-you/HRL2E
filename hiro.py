@@ -248,10 +248,11 @@ def intrinsic_reward_simple(state, goal, next_state, goal_dim):
     return -torch.pow(sum(torch.pow(state[:goal_dim] + goal - next_state[:goal_dim], 2)), 1 / 2)
 
 def heuristic_intrinsic_reward(state, goal, next_state, goal_dim, goal0):
-    d = torch.pow(sum(torch.pow(state[:goal_dim] + goal - next_state[:goal_dim], 2)), 1 / 2)
+    d = torch.norm(state[:goal_dim] + goal - next_state[:goal_dim])
     a = next_state[:goal_dim] - state[:goal_dim]
     b = goal0
-    cos = (a*b).sum() / (torch.pow(torch.pow(a,2).sum(), 1/2) * torch.pow(torch.pow(b,2).sum(), 1/2))
+    cos = (a*b).sum() / (torch.norm(a) * torch.norm(b))
+    # cos = (a*b).sum() / (torch.pow(torch.pow(a,2).sum(), 1/2) * torch.pow(torch.pow(b,2).sum(), 1/2))
     return -d * exp(-cos)
 
 
