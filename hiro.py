@@ -494,8 +494,8 @@ def train(params):
         # reward_h = 1 if done_h else 0           # 0-1 reward for experiment1
         action, reward_h, done_h = Tensor(action), Tensor([reward_h]), Tensor([done_h])
         goal_sequence.append(goal)
-        # intri_reward = intrinsic_reward_simple(state, goal, next_state, goal_dim)
-        intri_reward = heuristic_intrinsic_reward(state, goal, next_state, goal_dim, goal0=goal_sequence[0])     
+        intri_reward = intrinsic_reward_simple(state, goal, next_state, goal_dim)
+        # intri_reward = heuristic_intrinsic_reward(state, goal, next_state, goal_dim, goal0=goal_sequence[0])     
         next_goal = h_function(state, goal, next_state, goal_dim)
         done_l = done_judge_low(goal)
         # 2.2.4 collect low-level experience
