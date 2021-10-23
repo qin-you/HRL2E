@@ -14,7 +14,7 @@ class Ensemble_utils:
 
     # plan B: use 5 TD3 agents to generate a, and use intric reward to score. vote to pick.
 
-    def en_pick_action(self, state, goal, agents, max_action, change):
+    def en_pick_action(self, state, goal, agents, max_action, change, ucb_lamda=0.2):
         # change: whether change cur_agent to generate action
         if change:
             if torch.rand(1).item() < 1-self.epsilon:
@@ -33,7 +33,7 @@ class Ensemble_utils:
                     Q_mean.append(mean)
                     Q_std.append(std)
 
-                ucb_list = [m+0.2*s for m, s in zip(Q_mean, Q_std)]
+                ucb_list = [m+ucb_lamda*s for m, s in zip(Q_mean, Q_std)]
                 ind = ucb_list.index(max(ucb_list))
                 self.cur_agent_ind = ind
                 return a_candidate[ind], self.cur_agent_ind

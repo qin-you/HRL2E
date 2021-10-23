@@ -413,7 +413,7 @@ def evaluate(agents_l, en_utils, actor_h, params, target_pos, device):
             while not done and t < episode_len:
                 t += 1
                 # action = actor_l(obs, goal).to(device)              
-                action, agent_ind = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True)
+                action, agent_ind = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True, ucb_lamda=0.)
                 values[en_utils.cur_agent_ind] += 1
                 next_state, _, _, _ = env.step(action.detach().cpu())
                 next_state = Tensor(next_state).to(device)
