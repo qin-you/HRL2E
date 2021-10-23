@@ -10,41 +10,45 @@ class Ensemble_utils:
     def __init__(self):
         self.n_ensemble = 3
         self.cur_agent_ind = torch.randint(0, self.n_ensemble, size=(1,)).item()
-        self.epsilon = 1
+        # self.epsilon = 0    # we use ucb exploration in replace of e-greedy
+        self.mask = [1, 1, 1]
 
     # plan B: use 5 TD3 agents to generate a, and use intric reward to score. vote to pick.
 
     def en_pick_action(self, state, goal, agents, max_action, change, ucb_lamda=0.2):
         # change: whether change cur_agent to generate action
         if change:
-            if torch.rand(1).item() < 1-self.epsilon:
-                a_candidate = []
-                for agent in agents:
-                    actor_eval_l = agent['actor_eval_l']
-                    a = actor_eval_l(state, goal).detach()
-                    a_candidate.append(a.clamp(-max_action, max_action).squeeze())
+            # if torch.rand(1).item() < 1-self.epsilon:
+            a_candidate = []
+            for agent in agents:
+                actor_eval_l = agent['actor_eval_l']
+                a = actor_eval_l(state, goal).detach()
+                a_candidate.append(a.clamp(-max_action, max_action).squeeze())
 
-                Q_mean = []     # mean
-                Q_std = []          # variance
-                score_machine = [agent['critic_target_l'] for agent in agents]
-                for action in a_candidate:
-                    score_source = torch.tensor([torch.min(* c(state, goal, action)) for c in score_machine])
-                    std, mean = torch.std_mean(score_source)
-                    Q_mean.append(mean)
-                    Q_std.append(std)
+            Q_mean = []     # mean
+            Q_std = []          # variance
+            score_machine = [agent['critic_target_l'] for agent in agents]
+            for action in a_candidate:
+                score_source = torch.tensor([torch.min(* c(state, goal, action)) for c in score_machine])
+                std, mean = torch.std_mean(score_source)
+                Q_mean.append(mean)
+                Q_std.append(std)
 
-                ucb_list = [m+ucb_lamda*s for m, s in zip(Q_mean, Q_std)]
-                ind = ucb_list.index(max(ucb_list))
-                self.cur_agent_ind = ind
-                return a_candidate[ind], self.cur_agent_ind
-            else:
-                ind = torch.randint(0, self.n_ensemble, size=(1,)).item()
-                actor_eval_l = agents[ind]['actor_eval_l']
-                self.cur_agent_ind = ind
-                return actor_eval_l(state, goal).detach(), self.cur_agent_ind
+            ucb_list = [m+ucb_lamda*s for m, s in zip(Q_mean, Q_std)]
+            ind = ucb_list.index(max(ucb_list))
+            self.cur_agent_ind = ind
+            sort_ind = torch.tensor(Q_std).argsort()
+            _mask = (sort_ind > 0).float()         
+            self.mask = _mask              
+            return a_candidate[ind], self.cur_agent_ind, self.mask
+            # else:
+            #     ind = torch.randint(0, self.n_ensemble, size=(1,)).item()
+            #     actor_eval_l = agents[ind]['actor_eval_l']
+            #     self.cur_agent_ind = ind
+            #     return actor_eval_l(state, goal).detach(), self.cur_agent_ind
         else:
             actor_eval_l = agents[self.cur_agent_ind]['actor_eval_l']
-            return actor_eval_l(state, goal).detach(), self.cur_agent_ind
+            return actor_eval_l(state, goal).detach(), self.cur_agent_ind, self.mask
 
     def en_update(self, experience_buffer, batch_size, total_it, params, agents):
         # sample--update,  n_ensemble times

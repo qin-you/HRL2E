@@ -401,7 +401,7 @@ def evaluate(agents_l, en_utils, actor_h, params, target_pos, device):
     success_number = 0
     env = get_env(params.env_name)
     goal_dim = params.goal_dim
-    en_utils.epsilon = 0
+    # en_utils.epsilon = 0
     for i in range(4):
         env.seed(policy_params.seed + i)
         for j in range(5):
@@ -413,7 +413,7 @@ def evaluate(agents_l, en_utils, actor_h, params, target_pos, device):
             while not done and t < episode_len:
                 t += 1
                 # action = actor_l(obs, goal).to(device)              
-                action, agent_ind = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True, ucb_lamda=0.)
+                action = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True, ucb_lamda=0.)[0]
                 values[en_utils.cur_agent_ind] += 1
                 next_state, _, _, _ = env.step(action.detach().cpu())
                 next_state = Tensor(next_state).to(device)
@@ -483,7 +483,7 @@ def train(params):
         else:
             expl_noise_action = np.random.normal(loc=0, scale=expl_noise_std_l, size=action_dim).astype(np.float32)
             # action = (actor_eval_l(state, goal).detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
-            a_tmp, agentl_ind = en_utils.en_pick_action(state, goal, en_agents, max_action, (t+1)%c==1)     # episode_timestep_h==1      (t+1)%c==1
+            a_tmp, agentl_ind, mask = en_utils.en_pick_action(state, goal, en_agents, max_action, (t+1)%c==1)     # episode_timestep_h==1      (t+1)%c==1
             action = (a_tmp.detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
         # 2.2.2 interact environment
         # time.sleep(0.002)                               # bug: mujoco_py.builder.MujocoException: Unknown warning type Time=140.500.Check for Nan in simulation
