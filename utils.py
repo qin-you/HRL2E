@@ -147,7 +147,7 @@ def log_video_hrl(env_name, agents_l, en_utils, actor_high, params):
         frame_buffer.append(env.render(mode='rgb_array'))
         # action = actor_low(torch.Tensor(state), torch.Tensor(goal)).detach()        
 
-        action, _ = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True)[0].detach().cpu()
+        action = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True)[0].detach().cpu()
 
         next_state, reward, done, _ = env.step(action)
         next_state = torch.Tensor(next_state).to(device)
