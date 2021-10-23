@@ -29,7 +29,7 @@ class Ensemble_utils:
                 score_machine = [agent['critic_target_l'] for agent in agents]
                 for action in a_candidate:
                     score_source = torch.tensor([torch.min(* c(state, goal, action)) for c in score_machine])
-                    std, mean = torch.std_mean()
+                    std, mean = torch.std_mean(score_source)
                     Q_mean.append(mean)
                     Q_std.append(std)
 
