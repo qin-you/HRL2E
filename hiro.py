@@ -480,6 +480,7 @@ def train(params):
         # 2.2.1 sample action
         if t < start_timestep:
             action = env.action_space.sample()
+            mask = torch.tensor([1.,1.,1.], device=device)
         else:
             expl_noise_action = np.random.normal(loc=0, scale=expl_noise_std_l, size=action_dim).astype(np.float32)
             # action = (actor_eval_l(state, goal).detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
