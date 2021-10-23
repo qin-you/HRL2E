@@ -34,7 +34,7 @@ class Ensemble_utils:
                     Q_std.append(std)
 
                 ucb_list = [m+0.2*s for m, s in zip(Q_mean, Q_std)]
-                ind = ucb_list.index(max(Q_mean))
+                ind = ucb_list.index(max(ucb_list))
                 self.cur_agent_ind = ind
                 return a_candidate[ind], self.cur_agent_ind
             else:
