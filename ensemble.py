@@ -1,4 +1,5 @@
 from copy import deepcopy
+from xml.etree.ElementTree import QName
 import torch
 from torch import Tensor
 from torch.nn import functional
@@ -23,13 +24,17 @@ class Ensemble_utils:
                     a = actor_eval_l(state, goal).detach()
                     a_candidate.append(a.clamp(-max_action, max_action).squeeze())
 
-                score_list = []
+                Q_mean = []     # mean
+                Q_std = []          # variance
                 score_machine = [agent['critic_target_l'] for agent in agents]
                 for action in a_candidate:
-                    score_source = [torch.min(* c(state, goal, action)) for c in score_machine]
-                    score_list.append(sum(score_source) / len(score_source))
+                    score_source = torch.tensor([torch.min(* c(state, goal, action)) for c in score_machine])
+                    std, mean = torch.std_mean()
+                    Q_mean.append(mean)
+                    Q_std.append(std)
 
-                ind = score_list.index(max(score_list))
+                ucb_list = [m+0.2*s for m, s in zip(Q_mean, Q_std)]
+                ind = ucb_list.index(max(Q_mean))
                 self.cur_agent_ind = ind
                 return a_candidate[ind], self.cur_agent_ind
             else:
