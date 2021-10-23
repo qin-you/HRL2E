@@ -487,7 +487,6 @@ def train(params):
             a_tmp, agentl_ind, mask = en_utils.en_pick_action(state, goal, en_agents, max_action, (t+1)%c==1)     # episode_timestep_h==1      (t+1)%c==1
             action = (a_tmp.detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
         # 2.2.2 interact environment
-        mask = Tensor(mask).to(device)
         next_state, _, _, info = env.step(action)
         next_state = Tensor(next_state).to(device)
         # 2.2.3 compute step arguments
