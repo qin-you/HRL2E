@@ -132,7 +132,7 @@ def log_video_hrl(env_name, agents_l, en_utils, actor_high, params):
     actor_high.max_goal = actor_high.max_goal
     policy_params = params.policy_params
     goal_dim = params.goal_dim
-    en_utils.epsilon = 0.          # evaluate video
+    # en_utils.epsilon = 0.          # evaluate video
     if env_name in envnames_mujoco:
         env = gym.make(env_name)
     elif env_name in envnames_ant:
