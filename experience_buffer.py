@@ -59,7 +59,7 @@ class ExperienceBufferLow:
         - assume state, action is not one-dimension
         - hold cpu data in memory, transform when output
     """
-    def __init__(self, capacity, state_dim, goal_dim, action_dim, use_cuda):
+    def __init__(self, capacity, state_dim, goal_dim, action_dim, use_cuda, mask_dim=3):
         # initialize
         self.capacity = capacity
         self.state_dim = state_dim
@@ -74,11 +74,12 @@ class ExperienceBufferLow:
         self.next_state = torch.zeros(capacity, state_dim)
         self.next_goal = torch.zeros(capacity, goal_dim)
         self.done = torch.zeros(capacity, 1)
+        self.mask = torch.zeros(capacity, mask_dim)
         # probe device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if use_cuda else "cpu"
         # self.device = "cpu"
 
-    def add(self, state, goal, action, reward, next_state, next_goal, done):
+    def add(self, state, goal, action, reward, next_state, next_goal, done, _mask):
         # add step experience (off-policy single steps)
         ind = self.offset
         self.state[ind] = state.cpu()
@@ -88,6 +89,7 @@ class ExperienceBufferLow:
         self.next_state[ind] = next_state.cpu()
         self.next_goal[ind] = next_goal.cpu()
         self.done[ind] = done.cpu()
+        self.mask[ind] = _mask.cpu()
         self.offset += 1
 
     def sample(self, batch_size):
@@ -99,7 +101,8 @@ class ExperienceBufferLow:
             self.reward[ind].to(self.device),
             self.next_state[ind].to(self.device),
             self.next_goal[ind].to(self.device),
-            self.done[ind].to(self.device)
+            self.done[ind].to(self.device),
+            self.mask[ind].to(self.device)
         )
 
 

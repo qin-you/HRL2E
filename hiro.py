@@ -486,7 +486,7 @@ def train(params):
             a_tmp, agentl_ind, mask = en_utils.en_pick_action(state, goal, en_agents, max_action, (t+1)%c==1)     # episode_timestep_h==1      (t+1)%c==1
             action = (a_tmp.detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
         # 2.2.2 interact environment
-        # time.sleep(0.002)                               # bug: mujoco_py.builder.MujocoException: Unknown warning type Time=140.500.Check for Nan in simulation
+        mask = Tensor(mask).to(device)
         next_state, _, _, info = env.step(action)
         next_state = Tensor(next_state).to(device)
         # 2.2.3 compute step arguments
@@ -500,7 +500,7 @@ def train(params):
         next_goal = h_function(state, goal, next_state, goal_dim)
         done_l = done_judge_low(goal)
         # 2.2.4 collect low-level experience
-        experience_buffer_l.add(state, goal, action, intri_reward, next_state, next_goal, done_l)
+        experience_buffer_l.add(state, goal, action, intri_reward, next_state, next_goal, done_l, mask)
         # 2.2.5 record segment arguments
         state_sequence.append(state)
         action_sequence.append(action)

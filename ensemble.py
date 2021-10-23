@@ -11,7 +11,7 @@ class Ensemble_utils:
         self.n_ensemble = 3
         self.cur_agent_ind = torch.randint(0, self.n_ensemble, size=(1,)).item()
         # self.epsilon = 0    # we use ucb exploration in replace of e-greedy
-        self.mask = [1, 1, 1]
+        self.mask = torch.tensor([1., 1., 1.])
 
     # plan B: use 5 TD3 agents to generate a, and use intric reward to score. vote to pick.
 
@@ -59,14 +59,14 @@ class Ensemble_utils:
         policy_params = params.policy_params
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if params.use_cuda else "cpu"
         total_it[0] += 1
-        for agent in agents:
+        for ind, agent in enumerate(agents):
             actor_eval = agent['actor_eval_l']
             actor_target = agent['actor_target_l']
             actor_optimizer = agent['actor_optimizer_l']
             critic_eval = agent['critic_eval_l']
             critic_target = agent['critic_target_l']
             critic_optimizer = agent['critic_optimizer_l']
-            state, goal, action, reward, next_state, next_goal, done = experience_buffer.sample(batch_size)
+            state, goal, action, reward, next_state, next_goal, done, mask = experience_buffer.sample(batch_size)
             with torch.no_grad():
                 # select action according to policy and add clipped noise
                 policy_noise = Tensor(np.random.normal(loc=0, scale=policy_params.policy_noise_std, size=params.action_dim).astype(np.float32) * policy_params.policy_noise_scale) \
@@ -78,7 +78,8 @@ class Ensemble_utils:
                 y = policy_params.reward_scal_l * reward + (1 - done) * policy_params.discount * q_target
             # update critic q_evaluate
             q_eval_1, q_eval_2 = critic_eval(state, goal, action)
-            critic_loss = functional.mse_loss(q_eval_1, y) + functional.mse_loss(q_eval_2, y)
+            # critic_loss = functional.mse_loss(q_eval_1, y) + functional.mse_loss(q_eval_2, y)
+            critic_loss = functional.mse_loss(mask[:,ind]*q_eval_1, mask[:,ind]*y) + functional.mse_loss(mask[:,ind]*q_eval_2, mask[:,ind]*y)
             critic_optimizer.zero_grad()
             critic_loss.backward()
             critic_optimizer.step()
@@ -86,7 +87,8 @@ class Ensemble_utils:
             actor_loss = None
             if total_it[0] % policy_params.policy_freq == 0:
                 # compute actor loss
-                actor_loss = -critic_eval.q1(state, goal, actor_eval(state, goal)).mean()
+                # actor_loss = -critic_eval.q1(state, goal, actor_eval(state, goal)).mean()
+                actor_loss = (-critic_eval.q1(state, goal, actor_eval(state, goal)) * mask[:,ind]).mean()
                 actor_optimizer.zero_grad()
                 actor_loss.backward()
                 actor_optimizer.step()
