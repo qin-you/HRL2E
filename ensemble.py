@@ -38,7 +38,7 @@ class Ensemble_utils:
             ind = ucb_list.index(max(ucb_list))
             self.cur_agent_ind = ind
             sort_ind = torch.tensor(Q_std).argsort()
-            _mask = (sort_ind > 0).float()         
+            _mask = (sort_ind >= 0).float()         
             self.mask = _mask              
             return a_candidate[ind], self.cur_agent_ind, self.mask
             # else:
