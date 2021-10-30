@@ -10,12 +10,13 @@ class Ensemble_utils:
     def __init__(self):
         self.n_ensemble = 3
         self.cur_agent_ind = torch.randint(0, self.n_ensemble, size=(1,)).item()
+        # self.ucb_lamda = 0.1
         # self.epsilon = 0    # we use ucb exploration in replace of e-greedy
         self.mask = torch.tensor([1., 1., 1.])
 
     # plan B: use 5 TD3 agents to generate a, and use intric reward to score. vote to pick.
 
-    def en_pick_action(self, state, goal, agents, max_action, change, ucb_lamda=0.2):
+    def en_pick_action(self, state, goal, agents, max_action, change, ucb_lamda=0.1):
         # change: whether change cur_agent to generate action
         if change:
             # if torch.rand(1).item() < 1-self.epsilon:
