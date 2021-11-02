@@ -90,7 +90,7 @@ class ExperienceBufferLow:
         self.next_goal[ind] = next_goal.cpu()
         self.done[ind] = done.cpu()
         self.mask[ind] = _mask.cpu()
-        self.offset += 1
+        self.offset = (self.offset + 1) % self.capacity
 
     def sample(self, batch_size):
         ind = np.random.randint(0, self. offset + 1, size=batch_size)
