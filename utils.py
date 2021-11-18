@@ -64,6 +64,7 @@ class TimeLogger:
 
 
 envnames_ant = ['AntBlock', 'AntBlockMaze', 'AntFall', 'AntMaze', 'AntPush']
+envnames_point = ['PointMaze']
 envnames_mujoco = ['InvertedPendulum-v2', 'InvertedDoublePendulum-v2', 'Hopper-v2', 'Humanoid-v2', 'Ant-v2',
                    'Reacher-v2', 'HalfCheetah-v2', 'Walker2d-v1']
 # max_goal = [
@@ -77,7 +78,7 @@ envnames_mujoco = ['InvertedPendulum-v2', 'InvertedDoublePendulum-v2', 'Hopper-v
 def get_env(env_name):
     global envnames_ant
     global envnames_mujoco
-    if env_name in envnames_ant:
+    if env_name in envnames_ant or env_name in envnames_point:
         env = create_maze_env(env_name=env_name)
     elif env_name in envnames_mujoco:
         env = gym.make(env_name)

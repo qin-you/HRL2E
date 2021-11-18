@@ -587,7 +587,7 @@ def train(params):
 
 
 if __name__ == "__main__":
-    env_name = "AntFall"
+    env_name = "AntMaze"
     env = get_env(env_name)
     state_dim = env.observation_space.shape[0]
     goal_dim = 3
@@ -633,5 +633,5 @@ if __name__ == "__main__":
         checkpoint=None
     )
 
-    wandb.init(project="hrl_ensemble")
+    # wandb.init(project="hrl_ensemble")
     train(params=params)
