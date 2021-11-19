@@ -37,7 +37,7 @@ class Ensemble_utils:
 
             ucb_list = [m+ucb_lamda*s for m, s in zip(Q_mean, Q_std)]
             ind = ucb_list.index(max(ucb_list))
-            # ind = torch.randint(high=3, size=(1,))      # if random schedule
+            ind = torch.randint(high=3, size=(1,))      # if random schedule
             self.cur_agent_ind = ind
             sort_ind = torch.tensor(Q_std).argsort()
             _mask = (sort_ind >= 0).float()         
