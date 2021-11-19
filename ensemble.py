@@ -51,7 +51,7 @@ class Ensemble_utils:
             #     return actor_eval_l(state, goal).detach(), self.cur_agent_ind
         else:
             actor_eval_l = agents[self.cur_agent_ind]['actor_eval_l']
-            return actor_eval_l(state, goal).detach(), self.cur_agent_ind, self.mask
+            return actor_eval_l(state, goal).detach().clamp(-max_action, max_action), self.cur_agent_ind, self.mask
 
     def en_update(self, experience_buffer, batch_size, total_it, params, agents):
         # sample--update,  n_ensemble times
