@@ -16,8 +16,9 @@ class Ensemble_utils:
 
     # plan B: use 5 TD3 agents to generate a, and use intric reward to score. vote to pick.
 
-    def en_pick_action(self, state, goal, agents, max_action, change, ucb_lamda=10.0):
+    def en_pick_action(self, state, goal, agents, max_action, change, steps, ucb_lamda=10.0):
         # change: whether change cur_agent to generate action
+        ucb_lamda = ucb_lamda if steps==None else max(0, ucb_lamda - ucb_lamda*(steps / 100000))    # after 100k, ucb_lambda==0
         if change:
             # if torch.rand(1).item() < 1-self.epsilon:
             a_candidate = []
