@@ -206,6 +206,7 @@ class CriticHigh(nn.Module):
 class Gate(nn.Module):
     # input:(s, g)  output:scores
     def __init__(self, input_dim, output_dim):
+        super(Gate, self).__init__()
         self.fc = nn.Sequential(
             nn.Linear(input_dim, 300),
             nn.ReLU(),
