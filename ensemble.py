@@ -70,7 +70,7 @@ class Ensemble_utils:
                     ind = torch.randint(0,high=self.n_ensemble, size=(1,)).item()
                 self.cur_agent_ind = ind
                 self.mask = torch.ones(self.n_ensemble)
-                return agents[ind]['actor_eval_l'](state,goal).detach, self.mask
+                return agents[ind]['actor_eval_l'](state,goal).detach(), self.mask
                 
         else:
             actor_eval_l = agents[self.cur_agent_ind]['actor_eval_l']
