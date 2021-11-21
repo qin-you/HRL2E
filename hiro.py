@@ -10,8 +10,8 @@ from torch.nn import functional
 import numpy as np
 import wandb
 from utils import get_env, get_target_position, log_video_hrl, ParamDict, LoggerTrigger, TimeLogger, print_cmd_hint
-from network import ActorLow, ActorHigh, CriticLow, CriticHigh
-from experience_buffer import ExperienceBufferLow, ExperienceBufferHigh
+from network import ActorLow, ActorHigh, CriticLow, CriticHigh, Gate
+from experience_buffer import ExperienceBufferLow, ExperienceBufferHigh, GateBuffer
 from ensemble import Ensemble_utils
 from copy import deepcopy
 from math import exp
@@ -208,7 +208,7 @@ def create_rl_components(params, device):
     critic_target_h = copy.deepcopy(critic_eval_h).to(device)
     critic_optimizer_h = torch.optim.Adam(critic_eval_h.parameters(), lr=policy_params.critic_lr)
     experience_buffer_h = ExperienceBufferHigh(int(policy_params.max_timestep / policy_params.c / 3) + 1, state_dim, goal_dim, params.use_cuda, policy_params.c, action_dim)
-
+    
     return [step, episode_num_h,
             actor_eval_l, actor_target_l, actor_optimizer_l, critic_eval_l, critic_target_l, critic_optimizer_l, experience_buffer_l,
             actor_eval_h, actor_target_h, actor_optimizer_h, critic_eval_h, critic_target_h, critic_optimizer_h, experience_buffer_h]
@@ -218,6 +218,8 @@ def create_en_agents(params, device, n_en):
     en_agents = []
     policy_params = params.policy_params
     state_dim, goal_dim, action_dim = params.state_dim, params.goal_dim, params.action_dim
+    gate_buffer = GateBuffer(int(params.policy_params.max_timestep / params.policy_params.c / 3) + 1, params.state_dim, params.goal_dim, n_en, params.use_cuda)
+    gate_net = Gate(state_dim+goal_dim, n_en)
     for i in range(n_en):
         actor_eval_l = ActorLow(state_dim, goal_dim, action_dim, policy_params.max_action).to(device)
         actor_target_l = copy.deepcopy(actor_eval_l).to(device)
@@ -228,7 +230,7 @@ def create_en_agents(params, device, n_en):
         temp = {'actor_eval_l':actor_eval_l, 'actor_target_l':actor_target_l, 'actor_optimizer_l':actor_optimizer_l, 
                 'critic_eval_l':critic_eval_l, 'critic_target_l':critic_target_l, 'critic_optimizer_l':critic_optimizer_l}
         en_agents.append(temp)
-    return en_agents
+    return en_agents, gate_buffer, gate_net
 
 
 
@@ -391,9 +393,6 @@ def step_update_h(experience_buffer, batch_size, total_it, actor_eval, actor_tar
 
 
 def evaluate(agents_l, en_utils, actor_h, params, target_pos, device):
-    
-
-
     labels = [str(i) for i in range(len(agents_l))]
     values = [0 for i in range(len(agents_l))]
     policy_params = params.policy_params
@@ -440,7 +439,8 @@ def train(params):
         [step, episode_num_h,
          actor_eval_l, actor_target_l, actor_optimizer_l, critic_eval_l, critic_target_l, critic_optimizer_l, experience_buffer_l,
          actor_eval_h, actor_target_h, actor_optimizer_h, critic_eval_h, critic_target_h, critic_optimizer_h, experience_buffer_h] = create_rl_components(params, device)
-        en_agents = create_en_agents(params, device, en_utils.n_ensemble)
+        en_agents, gate_buffer, gate_net = create_en_agents(params, device, en_utils.n_ensemble)
+        
         # en_agents = [{'actor_eval_l':actor_eval_l, 'actor_target_l':actor_target_l, 'actor_optimizer_l':actor_optimizer_l,
         #                 'critic_eval_l':critic_eval_l, 'critic_target_l':critic_target_l, 'critic_optimizer_l':critic_optimizer_l}]
         # > running utils

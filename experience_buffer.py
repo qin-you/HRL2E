@@ -153,4 +153,27 @@ class ExperienceBufferHigh:
             self.a_seq[ind].to(self.device)
         )
 
+class GateBuffer:
+    def __init__(self, capacity, state_dim, goal_dim, label_dim, use_cuda) -> None:
+        self.capacity = int(capacity)
+        self.state_dim = state_dim
+        self.goal_dim = goal_dim
+        self.offset = 0
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if use_cuda else "cpu"
 
+        self.X = torch.zeros((capacity, state_dim + goal_dim))
+        self.y = torch.zeros((capacity, label_dim))
+        
+    def add(self, state, goal, label):
+        ind = self.offset
+        self.X[ind] = torch.cat((state, goal)).cpu()
+        self.y[ind] = label.cpu()
+        self.offset = (self.offset + 1) % self.capacity
+        
+    def sample(self, batch_size):
+        ind = np.random.randint(0, self. offset + 1, size=batch_size)
+        return (
+            self.X[ind].to(self.device),
+            self.y[ind].to(self.device)
+        )
+        

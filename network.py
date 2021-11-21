@@ -2,6 +2,7 @@
 Networks
 """
 
+from typing import ForwardRef
 import torch
 import torch.nn as nn
 
@@ -200,3 +201,21 @@ class CriticHigh(nn.Module):
         # forward propagate
         q1 = self.fc1(obs_action)
         return q1
+
+
+class Gate(nn.Module):
+    # input:(s, g)  output:scores
+    def __init__(self, input_dim, output_dim):
+        self.fc = nn.Sequential(
+            nn.Linear(input_dim, 300),
+            nn.ReLU(),
+            nn.Linear(300, 300),
+            nn.ReLU(),
+            nn.Linear(300, output_dim)
+        )
+
+    def forward(self, input):
+        if not isinstance(input, torch.Tensor): state = torch.Tensor(input)
+        if len(input.shape) < 2: input = input[None, :]
+        scores = self.fc(input)
+        return scores
