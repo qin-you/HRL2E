@@ -257,6 +257,12 @@ def heuristic_intrinsic_reward(state, goal, next_state, goal_dim, goal0):
     # cos = (a*b).sum() / (torch.pow(torch.pow(a,2).sum(), 1/2) * torch.pow(torch.pow(b,2).sum(), 1/2))
     return -d * exp(-cos)
 
+def gate_score_cal(start_state, end_state, goal, goal_dim):
+    d = torch.norm(end_state[:goal_dim] - start_state[:goal_dim])
+    a = end_state[:goal_dim] - start_state[:goal_dim]
+    b = goal
+    cos = (a*b).sum() / (torch.norm(a) * torch.norm(b))
+    return d*cos
 
 def dense_reward(state, goal_dim, target=Tensor([0, 19, 0.5])):
     device = state.device
@@ -523,6 +529,9 @@ def train(params):
             # goal_hat, updated = off_policy_correction(en_agents[0]['actor_target_l'], action_sequence, state_sequence, goal_dim, goal_sequence[0], next_state, max_goal, device)
             state_arr, action_arr = torch.stack(state_sequence), torch.stack(action_sequence)
             experience_buffer_h.add(state_sequence[0], goal_sequence[0], episode_reward_h, next_state, done_h, state_arr, action_arr)
+            gate_labels = [gate_score_cal(state_sequence[0], next_state, goal_sequence[0], goal_dim) for _ in range(en_utils.n_ensemble)]
+            gate_labels = torch.tensor(gate_labels).to(device)
+            gate_buffer.add(state_sequence[0], goal_sequence[0], label=0)
             # if state_print_trigger.good2log(t, 500): print_cmd_hint(params=[state_sequence, goal_sequence, action_sequence, intri_reward_sequence, updated, goal_hat, reward_h_sequence], location='training_state')
             # 2.2.9 reset segment arguments & log (reward)
             state_sequence, action_sequence, intri_reward_sequence, goal_sequence, reward_h_sequence = [], [], [], [], []   
