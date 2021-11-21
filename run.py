@@ -41,6 +41,8 @@ parser.add_argument('--policy_freq', type=int, help='delayed policy update inter
 parser.add_argument('--discount', type=float, help='long-horizon reward discount')
 parser.add_argument('--actor_lr', type=float, help='actor policy learning rate')
 parser.add_argument('--critic_lr', type=float, help='critic policy learning rate')
+# parser.add_argument('--gate_lr', type=float, default=1e-4, help='critic policy learning rate')
+
 parser.add_argument('--tau', type=float, help='soft update parameter')
 parser.add_argument('--reward_scal_l', type=float, help='low-level reward rescale parameter')
 parser.add_argument('--reward_scal_h', type=float, help='high-level reward rescale parameter')

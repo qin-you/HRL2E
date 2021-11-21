@@ -219,7 +219,8 @@ def create_en_agents(params, device, n_en):
     policy_params = params.policy_params
     state_dim, goal_dim, action_dim = params.state_dim, params.goal_dim, params.action_dim
     gate_buffer = GateBuffer(int(params.policy_params.max_timestep / params.policy_params.c / 3) + 1, params.state_dim, params.goal_dim, n_en, params.use_cuda)
-    gate_net = Gate(state_dim+goal_dim, n_en)
+    gate_net = Gate(state_dim+goal_dim, n_en).to(device)
+    gate_optimizer = torch.optim.Adam(gate_net.parameters(), lr=policy_params.actor_lr) 
     for i in range(n_en):
         actor_eval_l = ActorLow(state_dim, goal_dim, action_dim, policy_params.max_action).to(device)
         actor_target_l = copy.deepcopy(actor_eval_l).to(device)
@@ -230,7 +231,7 @@ def create_en_agents(params, device, n_en):
         temp = {'actor_eval_l':actor_eval_l, 'actor_target_l':actor_target_l, 'actor_optimizer_l':actor_optimizer_l, 
                 'critic_eval_l':critic_eval_l, 'critic_target_l':critic_target_l, 'critic_optimizer_l':critic_optimizer_l}
         en_agents.append(temp)
-    return en_agents, gate_buffer, gate_net
+    return en_agents, gate_buffer, gate_net, gate_optimizer
 
 
 
@@ -397,6 +398,17 @@ def step_update_h(experience_buffer, batch_size, total_it, actor_eval, actor_tar
         actor_loss = actor_loss.detach()
     return y.detach(), critic_loss.detach(), actor_loss
 
+def step_update_gate(buffer, batch_size, total_it, gate_net, gate_optimizer, params):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if params.use_cuda else "cpu"
+    X, y = buffer.sample(batch_size)
+    scores_prediction = gate_net(X)
+    loss = functional.mse_loss(scores_prediction, y)
+    gate_optimizer.zero_grad()
+    loss.backward()
+    gate_optimizer.step()
+    score_std, score_mean = torch.std_mean(scores_prediction)
+    return loss.detach(), score_std, score_mean
+    
 
 def evaluate(agents_l, en_utils, actor_h, params, target_pos, device):
     labels = [str(i) for i in range(len(agents_l))]
@@ -445,7 +457,7 @@ def train(params):
         [step, episode_num_h,
          actor_eval_l, actor_target_l, actor_optimizer_l, critic_eval_l, critic_target_l, critic_optimizer_l, experience_buffer_l,
          actor_eval_h, actor_target_h, actor_optimizer_h, critic_eval_h, critic_target_h, critic_optimizer_h, experience_buffer_h] = create_rl_components(params, device)
-        en_agents, gate_buffer, gate_net = create_en_agents(params, device, en_utils.n_ensemble)
+        en_agents, gate_buffer, gate_net, gate_optimizer = create_en_agents(params, device, en_utils.n_ensemble)
         
         # en_agents = [{'actor_eval_l':actor_eval_l, 'actor_target_l':actor_target_l, 'actor_optimizer_l':actor_optimizer_l,
         #                 'critic_eval_l':critic_eval_l, 'critic_target_l':critic_target_l, 'critic_optimizer_l':critic_optimizer_l}]
@@ -552,6 +564,8 @@ def train(params):
         if t >= start_timestep and (t + 1) % c == 0:
             target_q_h, critic_loss_h, actor_loss_h = \
                 step_update_h(experience_buffer_h, batch_size, total_it, actor_eval_h, actor_target_h, critic_eval_h, critic_target_h, critic_optimizer_h, actor_optimizer_h, en_agents[0]['actor_target_l'], params)
+        if t >= start_timestep and (t + 1) % c == 0:
+            loss, score_std, score_mean = step_update_gate(gate_buffer, batch_size, total_it, gate_net, gate_optimizer, params)
         # 2.2.12 log training curve (inter_loss)
         if t >= start_timestep and t % log_interval == 0:
             record_logger(args=[target_q_l, critic_loss_l, actor_loss_l, target_q_h, critic_loss_h, actor_loss_h], option='inter_loss', step=t-start_timestep)
