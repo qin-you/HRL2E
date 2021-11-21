@@ -64,7 +64,7 @@ class Ensemble_utils:
                 return a_candidate[ind], self.mask
             elif option == 'gate':                
                 if torch.rand(1).item() < 1-epsilon:
-                    scores = gate(torch.cat(state,goal)).squeeze()
+                    scores = gate(torch.cat((state,goal))).squeeze()
                     ind = torch.argmax(scores).item()
                 else:
                     ind = torch.randint(0,high=self.n_ensemble, size=(1,)).item()
