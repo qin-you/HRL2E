@@ -170,7 +170,7 @@ def initialize_params_checkpoint(params, device):
 
 def record_logger(args, option, step):
     if option == "inter_loss":
-        target_q_l, critic_loss_l, actor_loss_l, target_q_h, critic_loss_h, actor_loss_h, gate_loss = args[:]
+        target_q_l, critic_loss_l, actor_loss_l, target_q_h, critic_loss_h, actor_loss_h, gate_loss, gate_score_mean, gate_score_std = args[:]
         if target_q_l is not None: wandb.log({'target_q low': torch.mean(target_q_l).squeeze()}, step=step)
         if critic_loss_l is not None: wandb.log({'critic_loss low': torch.mean(critic_loss_l).squeeze()}, step=step)
         if actor_loss_l is not None: wandb.log({'actor_loss low': torch.mean(actor_loss_l).squeeze()}, step=step)
@@ -178,6 +178,8 @@ def record_logger(args, option, step):
         if critic_loss_h is not None: wandb.log({'critic_loss high': torch.mean(critic_loss_h).squeeze()}, step=step)
         if actor_loss_h is not None: wandb.log({'actor_loss high': torch.mean(actor_loss_h).squeeze()}, step=step)
         if gate_loss is not None: wandb.log({'gate_loss': torch.mean(gate_loss).squeeze()}, step=step)
+        if gate_score_mean is not None: wandb.log({'gate_score_mean': torch.mean(gate_score_mean).squeeze()}, step=step)
+        if gate_score_std is not None: wandb.log({'gate_score_std': torch.mean(gate_score_std)}, step=step)
     elif option == "reward":
         episode_reward_l, episode_reward_h = args[:]
         wandb.log({'episode reward low': episode_reward_l}, step=step)
@@ -478,7 +480,7 @@ def train(params):
         #  c, episode_len, max_timestep, start_timestep, batch_size,
         #  log_interval, checkpoint_interval, evaluation_interval, save_video, video_interval, env] = initialize_params_checkpoint(params, device)
         # params.prefix = prefix
-    target_q_h, critic_loss_h, actor_loss_h, gate_loss = None, None, None, None
+    target_q_h, critic_loss_h, actor_loss_h, gate_loss, gate_score_mean, gate_score_std = None, None, None, None, None, None
     target_pos = get_target_position(env_name).to(device)
     # 1.2 set seeds
     env.seed(policy_params.seed)
@@ -566,10 +568,10 @@ def train(params):
             target_q_h, critic_loss_h, actor_loss_h = \
                 step_update_h(experience_buffer_h, batch_size, total_it, actor_eval_h, actor_target_h, critic_eval_h, critic_target_h, critic_optimizer_h, actor_optimizer_h, en_agents[0]['actor_target_l'], params)
         if t >= start_timestep and (t + 1) % c == 0:
-            gate_loss, score_std, score_mean = step_update_gate(gate_buffer, batch_size, total_it, gate_net, gate_optimizer, params)
+            gate_loss, gate_score_std, gate_score_mean = step_update_gate(gate_buffer, batch_size, total_it, gate_net, gate_optimizer, params)
         # 2.2.12 log training curve (inter_loss)
         if t >= start_timestep and t % log_interval == 0:
-            record_logger(args=[target_q_l, critic_loss_l, actor_loss_l, target_q_h, critic_loss_h, actor_loss_h, gate_loss], option='inter_loss', step=t-start_timestep)
+            record_logger(args=[target_q_l, critic_loss_l, actor_loss_l, target_q_h, critic_loss_h, actor_loss_h, gate_loss, gate_score_mean, gate_score_std], option='inter_loss', step=t-start_timestep)
             record_logger([success_rate], 'success_rate', step=t - start_timestep)
         # 2.2.13 start new episode
         if episode_timestep_h >= episode_len:
