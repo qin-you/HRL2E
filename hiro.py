@@ -219,7 +219,7 @@ def create_en_agents(params, device, n_en):
     en_agents = []
     policy_params = params.policy_params
     state_dim, goal_dim, action_dim = params.state_dim, params.goal_dim, params.action_dim
-    gate_buffer = GateBuffer(int(params.policy_params.max_timestep / params.policy_params.c / 3) + 1, params.state_dim, params.goal_dim, n_en, params.use_cuda)
+    gate_buffer = GateBuffer(int(params.policy_params.max_timestep / params.policy_params.c / 6) + 1, params.state_dim, params.goal_dim, n_en, params.use_cuda)
     gate_net = Gate(state_dim+goal_dim, n_en).to(device)
     gate_optimizer = torch.optim.Adam(gate_net.parameters(), lr=policy_params.actor_lr) 
     for i in range(n_en):
@@ -478,7 +478,7 @@ def train(params):
         #  c, episode_len, max_timestep, start_timestep, batch_size,
         #  log_interval, checkpoint_interval, evaluation_interval, save_video, video_interval, env] = initialize_params_checkpoint(params, device)
         # params.prefix = prefix
-    target_q_h, critic_loss_h, actor_loss_h = None, None, None
+    target_q_h, critic_loss_h, actor_loss_h, gate_loss = None, None, None, None
     target_pos = get_target_position(env_name).to(device)
     # 1.2 set seeds
     env.seed(policy_params.seed)
