@@ -10,47 +10,68 @@ class Ensemble_utils:
     def __init__(self):
         self.n_ensemble = 3
         self.cur_agent_ind = torch.randint(0, self.n_ensemble, size=(1,)).item()
-        # self.ucb_lamda = 0.1
-        # self.epsilon = 0    # we use ucb exploration in replace of e-greedy
         self.mask = torch.tensor([1., 1., 1.])
 
-    # plan B: use 5 TD3 agents to generate a, and use intric reward to score. vote to pick.
-
-    def en_pick_action(self, state, goal, agents, max_action, change, steps, ucb_lamda=10.0):
+    def en_pick_action(self, state, goal, agents, max_action, change, steps, epsilon=0, ucb_lamda=10.0, gate=None, option='gate'):
+        # option: gate e-greedy ucb
+        
         # change: whether change cur_agent to generate action
-        ucb_lamda = ucb_lamda if steps==None else max(0, ucb_lamda - ucb_lamda*(steps / 100000))    # after 100k, ucb_lambda==0
         if change:
-            # if torch.rand(1).item() < 1-self.epsilon:
-            a_candidate = []
-            for agent in agents:
-                actor_eval_l = agent['actor_eval_l']
-                a = actor_eval_l(state, goal).detach()
-                # a_candidate.append(a.clamp(-max_action, max_action).squeeze())
-                a_candidate.append(a.squeeze())
+            if option == 'ucb':
+                ucb_lamda = ucb_lamda if steps==None else max(0, ucb_lamda - ucb_lamda*(steps / 1e5))    # after 100k, ucb_lambda==0
+                a_candidate = []
+                for agent in agents:
+                    actor_eval_l = agent['actor_eval_l']
+                    a = actor_eval_l(state, goal).detach()
+                    # a_candidate.append(a.clamp(-max_action, max_action).squeeze())
+                    a_candidate.append(a.squeeze())
 
-            Q_mean = []     # mean
-            Q_std = []          # variance
-            score_machine = [agent['critic_target_l'] for agent in agents]
-            for action in a_candidate:
-                score_source = torch.tensor([torch.min(* c(state, goal, action)) for c in score_machine])
-                std, mean = torch.std_mean(score_source)
-                Q_mean.append(mean)
-                Q_std.append(std)
+                Q_mean = []     
+                Q_std = []          
+                score_machine = [agent['critic_target_l'] for agent in agents]
+                for action in a_candidate:
+                    score_source = torch.tensor([torch.min(* c(state, goal, action)) for c in score_machine])
+                    std, mean = torch.std_mean(score_source)
+                    Q_mean.append(mean)
+                    Q_std.append(std)
 
-            ucb_list = [m+ucb_lamda*s for m, s in zip(Q_mean, Q_std)]
-            ind = ucb_list.index(max(ucb_list))
-            # ind = torch.randint(0,high=self.n_ensemble, size=(1,)).item()      # if random schedule
-            self.cur_agent_ind = ind
-            sort_ind = torch.tensor(Q_std).argsort(descending=True)
-            _mask = torch.zeros((self.n_ensemble,))
-            _mask[sort_ind[:self.n_ensemble]] = 1.      # mask proportion
-            self.mask = _mask              
-            return a_candidate[ind], self.cur_agent_ind, self.mask
-            # else:
-            #     ind = torch.randint(0, self.n_ensemble, size=(1,)).item()
-            #     actor_eval_l = agents[ind]['actor_eval_l']
-            #     self.cur_agent_ind = ind
-            #     return actor_eval_l(state, goal).detach(), self.cur_agent_ind
+                ucb_list = [m+ucb_lamda*s for m, s in zip(Q_mean, Q_std)]
+                ind = ucb_list.index(max(ucb_list))
+                self.cur_agent_ind = ind
+                sort_ind = torch.tensor(Q_std).argsort(descending=True)
+                _mask = torch.zeros((self.n_ensemble,))
+                _mask[sort_ind[:self.n_ensemble]] = 1.      
+                self.mask = _mask              
+                return a_candidate[ind], self.mask
+            elif option == 'e-greedy':
+                a_candidate = []
+                for agent in agents:
+                    actor_eval_l = agent['actor_eval_l']
+                    a = actor_eval_l(state, goal).detach()
+                    a_candidate.append(a.squeeze())
+                if torch.rand(1).item() < 1-epsilon:     
+                    Q_mean = []     
+                    score_machine = [agent['critic_target_l'] for agent in agents]
+                    for action in a_candidate:
+                        score_source = torch.tensor([torch.min(* c(state, goal, action)) for c in score_machine])
+                        std, mean = torch.std_mean(score_source)
+                        Q_mean.append(mean)
+                    ind = torch.tensor(Q_mean).argmax()
+                else:
+                    ind = torch.randint(0,high=self.n_ensemble, size=(1,)).item()
+                self.cur_agent_ind = ind
+                self.mask = torch.ones(self.n_ensemble)
+                return a_candidate[ind], self.mask
+            elif option == 'gate':                
+                if torch.rand(1).item() < 1-epsilon:
+                    scores = gate(torch.cat(state,goal)).squeeze()
+                    ind = torch.argmax(scores).item()
+                else:
+                    ind = torch.randint(0,high=self.n_ensemble, size=(1,)).item()
+                self.cur_agent_ind = ind
+                self.mask = torch.ones(self.n_ensemble)
+                return agents[ind]['actor_eval_l'](state,goal).detach, self.mask
+                
         else:
             actor_eval_l = agents[self.cur_agent_ind]['actor_eval_l']
             # return actor_eval_l(state, goal).detach().clamp(-max_action, max_action), self.cur_agent_ind, self.mask
