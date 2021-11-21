@@ -413,7 +413,7 @@ def step_update_gate(buffer, batch_size, total_it, gate_net, gate_optimizer, par
     return loss.detach(), score_std, score_mean
     
 
-def evaluate(agents_l, en_utils, actor_h, params, target_pos, device):
+def evaluate(agents_l, en_utils, actor_h, params, target_pos, gate_net, device):
     labels = [str(i) for i in range(len(agents_l))]
     values = [0 for i in range(len(agents_l))]
     policy_params = params.policy_params
@@ -433,7 +433,7 @@ def evaluate(agents_l, en_utils, actor_h, params, target_pos, device):
             while not done and t < episode_len:
                 t += 1
                 # action = actor_l(obs, goal).to(device)              
-                action = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True, steps=None, epsilon=0, ucb_lamda=0.,option='gate')[0]
+                action = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True, steps=None, epsilon=0, ucb_lamda=0., gate=gate_net option='gate')[0]
                 values[en_utils.cur_agent_ind] += 1
                 next_state, _, _, _ = env.step(action.detach().cpu())
                 next_state = Tensor(next_state).to(device)
@@ -590,7 +590,7 @@ def train(params):
         episode_timestep_h += 1
         # 2.2.15 save videos & checkpoints
         if save_video and video_log_trigger.good2log(t, video_interval):
-            log_video_hrl(env_name, en_agents, deepcopy(en_utils), actor_target_h, params)     
+            log_video_hrl(env_name, en_agents, deepcopy(en_utils), actor_target_h, gate_net, params)     
             time_logger.sps(t)
             time_logger.time_spent()
             print("")
@@ -601,14 +601,14 @@ def train(params):
             #                 actor_target_h, critic_target_h, actor_optimizer_h, critic_optimizer_h, experience_buffer_h,
             #                 logger, params)
         if t > start_timestep and evalutil_logger.good2log(t, evaluation_interval):
-            success_rate = evaluate(en_agents, deepcopy(en_utils), actor_target_h, params, target_pos, device)                 
+            success_rate = evaluate(en_agents, deepcopy(en_utils), actor_target_h, params, target_pos, gate_net, device)                 
     # 2.3 final log (episode videos)
     logger = [time_logger, state_print_trigger, video_log_trigger, checkpoint_logger, evalutil_logger, episode_num_h]
     # save_checkpoint(max_timestep, actor_target_l, critic_target_l, actor_optimizer_l, critic_optimizer_l, experience_buffer_l,      
     #                 actor_target_h, critic_target_h, actor_optimizer_h, critic_optimizer_h, experience_buffer_h,
     #                 logger, params)
     for i in range(3):
-        log_video_hrl(env_name, en_agents, actor_target_h, params)         
+        log_video_hrl(env_name, en_agents, actor_target_h, gate_net, params)         
     print_cmd_hint(params=params, location='end_train')
 
 
