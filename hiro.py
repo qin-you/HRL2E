@@ -543,7 +543,7 @@ def train(params):
             experience_buffer_h.add(state_sequence[0], goal_sequence[0], episode_reward_h, next_state, done_h, state_arr, action_arr)
             gate_labels = [gate_score_cal(state_sequence[0], next_state, goal_sequence[0], goal_dim) for _ in range(en_utils.n_ensemble)]
             gate_labels = torch.tensor(gate_labels).to(device)
-            gate_buffer.add(state_sequence[0], goal_sequence[0], label=0)
+            gate_buffer.add(state_sequence[0], goal_sequence[0], label=gate_labels)
             # if state_print_trigger.good2log(t, 500): print_cmd_hint(params=[state_sequence, goal_sequence, action_sequence, intri_reward_sequence, updated, goal_hat, reward_h_sequence], location='training_state')
             # 2.2.9 reset segment arguments & log (reward)
             state_sequence, action_sequence, intri_reward_sequence, goal_sequence, reward_h_sequence = [], [], [], [], []   
