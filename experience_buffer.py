@@ -159,6 +159,7 @@ class GateBuffer:
         self.state_dim = hat_state_dim
         self.goal_dim = goal_dim
         self.offset = 0
+        self.if_full = False
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if use_cuda else "cpu"
 
         self.X = torch.zeros((capacity, hat_state_dim + goal_dim))

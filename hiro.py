@@ -14,7 +14,8 @@ from network import ActorLow, ActorHigh, CriticLow, CriticHigh, Gate
 from experience_buffer import ExperienceBufferLow, ExperienceBufferHigh, GateBuffer
 from ensemble import Ensemble_utils
 from copy import deepcopy
-from math import exp
+from math import exp 
+import math
 import time
 
 
@@ -223,7 +224,7 @@ def create_en_agents(params, device, n_en):
     state_dim, goal_dim, action_dim = params.state_dim, params.goal_dim, params.action_dim
     gates = []
     for _ in range(n_en):
-        gate_buffer = GateBuffer(int(params.policy_params.max_timestep / params.policy_params.c / 6) + 1, params.goal_dim, params.goal_dim, 1, params.use_cuda)
+        gate_buffer = GateBuffer(int(params.policy_params.max_timestep / params.policy_params.c / 18) + 1, params.goal_dim, params.goal_dim, 1, params.use_cuda)
         gate_net = Gate(state_dim+goal_dim, n_en).to(device)
         gate_optimizer = torch.optim.Adam(gate_net.parameters(), lr=policy_params.actor_lr) 
         temp = {'gate_buffer': gate_buffer, 'gate_net': gate_net, 'gate_optimizer':gate_optimizer}
@@ -442,7 +443,7 @@ def evaluate(agents_l, en_utils, actor_h, params, target_pos, gates, device):
             while not done and t < episode_len:
                 t += 1
                 # action = actor_l(obs, goal).to(device)              
-                action = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True, steps=None, goal_dim=goal_dim, epsilon=0, ucb_lamda=0., gates=gates, option='gate')[0]
+                action = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True, steps=None, goal_dim=goal_dim, epsilon=0, ucb_lamda=0., gates=gates, option='gate', gate_pretrain_steps=math.inf)[0]
                 values[en_utils.cur_agent_ind] += 1
                 next_state, _, _, _ = env.step(action.detach().cpu())
                 next_state = Tensor(next_state).to(device)
@@ -515,7 +516,7 @@ def train(params):
         else:
             expl_noise_action = np.random.normal(loc=0, scale=expl_noise_std_l, size=action_dim).astype(np.float32)
             # action = (actor_eval_l(state, goal).detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
-            a_tmp, mask = en_utils.en_pick_action(state, goal, en_agents, max_action, (t+1)%c==1, t, goal_dim, epsilon=0.9, ucb_lamda=10., gates=gates, option='gate')     # episode_timestep_h==1      (t+1)%c==1
+            a_tmp, mask = en_utils.en_pick_action(state, goal, en_agents, max_action, (t+1)%c==1, t, goal_dim, epsilon=0.9, ucb_lamda=10., gates=gates, option='gate',gate_pretrain_steps=t-start_timestep)     # episode_timestep_h==1      (t+1)%c==1
             action = (a_tmp.detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
         # 2.2.2 interact environment
         next_state, _, _, info = env.step(action)
@@ -550,12 +551,13 @@ def train(params):
                 expl_noise_goal = np.random.normal(loc=0, scale=expl_noise_std_h, size=goal_dim).astype(np.float32)
                 next_goal = (actor_eval_h(next_state.to(device)).detach().cpu() + expl_noise_goal).squeeze().to(device)
                 next_goal = torch.min(torch.max(next_goal, -max_goal), max_goal)
-            # 2.2.8 collect high-level experience
+            # 2.2.8 collect high-level experience and gate experience
             # goal_hat, updated = off_policy_correction(en_agents[0]['actor_target_l'], action_sequence, state_sequence, goal_dim, goal_sequence[0], next_state, max_goal, device)
             state_arr, action_arr = torch.stack(state_sequence), torch.stack(action_sequence)
             experience_buffer_h.add(state_sequence[0], goal_sequence[0], episode_reward_h, next_state, done_h, state_arr, action_arr)
-            gate_label = intri_reward
-            gates[en_utils.cur_agent_ind]['gate_buffer'].add(state_sequence[0][:goal_dim], goal_sequence[0], label=gate_label)
+            if t >= start_timestep:
+                gate_label = intri_reward
+                gates[en_utils.cur_agent_ind]['gate_buffer'].add(state_sequence[0][:goal_dim], goal_sequence[0], label=gate_label)
             # if state_print_trigger.good2log(t, 500): print_cmd_hint(params=[state_sequence, goal_sequence, action_sequence, intri_reward_sequence, updated, goal_hat, reward_h_sequence], location='training_state')
             # 2.2.9 reset segment arguments & log (reward)
             state_sequence, action_sequence, intri_reward_sequence, goal_sequence, reward_h_sequence = [], [], [], [], []   
@@ -576,7 +578,7 @@ def train(params):
         if t >= start_timestep and (t + 1) % c == 0:
             target_q_h, critic_loss_h, actor_loss_h = \
                 step_update_h(experience_buffer_h, batch_size, total_it, actor_eval_h, actor_target_h, critic_eval_h, critic_target_h, critic_optimizer_h, actor_optimizer_h, en_agents[0]['actor_target_l'], params)
-        if t >= start_timestep and (t + 1) % (3*c) == 0:
+        if t >= start_timestep + en_utils.gate_pretrain_threshold and (t + 1) % (3*c) == 0:
             gate_loss, gate_score_std, gate_score_mean = step_update_gate(gates, batch_size, total_it, en_utils.cur_agent_ind, params)
         # 2.2.12 log training curve (inter_loss)
         if t >= start_timestep and t % log_interval == 0:

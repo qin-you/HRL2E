@@ -11,9 +11,10 @@ class Ensemble_utils:
         self.n_ensemble = 3
         self.cur_agent_ind = torch.randint(0, self.n_ensemble, size=(1,)).item()
         self.mask = torch.tensor([1., 1., 1.])
+        self.gate_pretrain_threshold = 1e4
 
-    def en_pick_action(self, state, goal, agents, max_action, change, steps, goal_dim, epsilon=0, ucb_lamda=10.0, gates=None, option='gate'):
-        # option: gate e-greedy ucb
+    def en_pick_action(self, state, goal, agents, max_action, change, steps, goal_dim, epsilon=0, ucb_lamda=10.0, gates=None, option='gate', gate_pretrain_steps=None):
+        # option: gate e-greedy ucb  
         
         # change: whether change cur_agent to generate action
         if change:
@@ -63,6 +64,7 @@ class Ensemble_utils:
                 self.mask = torch.ones(self.n_ensemble)
                 return a_candidate[ind], self.mask
             elif option == 'gate':                
+                if gate_pretrain_steps < self.gate_pretrain_threshold: epsilon = 1
                 if torch.rand(1).item() < 1-epsilon:
                     scores = [gate(torch.cat((state.squeeze()[:goal_dim], goal.squeeze()))).squeeze() for gate in [gates[i]['gate_net'] for i in range(self.n_ensemble)]]
                     ind = torch.tensor(scores).argmax().item()

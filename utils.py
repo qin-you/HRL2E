@@ -8,6 +8,7 @@ import wandb
 import numpy as np
 import gym
 from environments.create_maze_env import create_maze_env
+import math
 
 
 class ParamDict(dict):
@@ -148,7 +149,7 @@ def log_video_hrl(env_name, agents_l, en_utils, actor_high, gates, params):
         frame_buffer.append(env.render(mode='rgb_array'))
         # action = actor_low(torch.Tensor(state), torch.Tensor(goal)).detach()        
 
-        action = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True, steps=None, goal_dim=goal_dim, epsilon=0, ucb_lamda=0, gates=gates, option='gate')[0].detach().cpu()
+        action = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True, steps=None, goal_dim=goal_dim, epsilon=0, ucb_lamda=0, gates=gates, option='gate', gate_pretain_steps=math.inf)[0].detach().cpu()
 
         next_state, reward, done, _ = env.step(action)
         next_state = torch.Tensor(next_state).to(device)
