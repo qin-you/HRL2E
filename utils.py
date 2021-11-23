@@ -124,7 +124,7 @@ def log_video(env_name, actor):
     env.close()
 
 
-def log_video_hrl(env_name, agents_l, en_utils, actor_high, gate_net, params):
+def log_video_hrl(env_name, agents_l, en_utils, actor_high, gates, params):
     # 
     # actor_low_list = [copy.deepcopy(actor_l).cpu for actor_l in [agent['actor_target_l'] for agent in agents_l]]
     # actor_low = copy.deepcopy(actor_low).cpu()
@@ -148,7 +148,7 @@ def log_video_hrl(env_name, agents_l, en_utils, actor_high, gate_net, params):
         frame_buffer.append(env.render(mode='rgb_array'))
         # action = actor_low(torch.Tensor(state), torch.Tensor(goal)).detach()        
 
-        action = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True, steps=None, epsilon=0, ucb_lamda=0, gate=gate_net, option='gate')[0].detach().cpu()
+        action = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True, steps=None, goal_dim=goal_dim, epsilon=0, ucb_lamda=0, gates=gates, option='gate')[0].detach().cpu()
 
         next_state, reward, done, _ = env.step(action)
         next_state = torch.Tensor(next_state).to(device)

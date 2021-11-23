@@ -221,9 +221,13 @@ def create_en_agents(params, device, n_en):
     en_agents = []
     policy_params = params.policy_params
     state_dim, goal_dim, action_dim = params.state_dim, params.goal_dim, params.action_dim
-    gate_buffer = GateBuffer(int(params.policy_params.max_timestep / params.policy_params.c / 6) + 1, params.state_dim, params.goal_dim, n_en, params.use_cuda)
-    gate_net = Gate(state_dim+goal_dim, n_en).to(device)
-    gate_optimizer = torch.optim.Adam(gate_net.parameters(), lr=policy_params.actor_lr) 
+    gates = []
+    for _ in range(n_en):
+        gate_buffer = GateBuffer(int(params.policy_params.max_timestep / params.policy_params.c / 6) + 1, params.goal_dim, params.goal_dim, 1, params.use_cuda)
+        gate_net = Gate(state_dim+goal_dim, n_en).to(device)
+        gate_optimizer = torch.optim.Adam(gate_net.parameters(), lr=policy_params.actor_lr) 
+        temp = {'gate_buffer': gate_buffer, 'gate_net': gate_net, 'gate_optimizer':gate_optimizer}
+        gates.append(temp)
     for i in range(n_en):
         actor_eval_l = ActorLow(state_dim, goal_dim, action_dim, policy_params.max_action).to(device)
         actor_target_l = copy.deepcopy(actor_eval_l).to(device)
@@ -234,7 +238,7 @@ def create_en_agents(params, device, n_en):
         temp = {'actor_eval_l':actor_eval_l, 'actor_target_l':actor_target_l, 'actor_optimizer_l':actor_optimizer_l, 
                 'critic_eval_l':critic_eval_l, 'critic_target_l':critic_target_l, 'critic_optimizer_l':critic_optimizer_l}
         en_agents.append(temp)
-    return en_agents, gate_buffer, gate_net, gate_optimizer
+    return en_agents, gates
 
 
 
@@ -401,19 +405,24 @@ def step_update_h(experience_buffer, batch_size, total_it, actor_eval, actor_tar
         actor_loss = actor_loss.detach()
     return y.detach(), critic_loss.detach(), actor_loss
 
-def step_update_gate(buffer, batch_size, total_it, gate_net, gate_optimizer, params):
+def step_update_gate(gates, batch_size, total_it, cur_ind, params):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if params.use_cuda else "cpu"
-    X, y = buffer.sample(batch_size)
-    scores_prediction = gate_net(X)
-    loss = functional.mse_loss(scores_prediction, y)
-    gate_optimizer.zero_grad()
-    loss.backward()
-    gate_optimizer.step()
-    score_std, score_mean = torch.std_mean(scores_prediction)
-    return loss.detach(), score_std, score_mean
+    loss, s_std, s_mean = [], [], []
+    for gate in gates:
+        X, y = gate['gate_buffer'].sample(batch_size)
+        scores_prediction = gate['gate_net'](X)
+        loss = functional.mse_loss(scores_prediction, y)
+        gate['gate_optimizer'].zero_grad()
+        loss.backward()
+        gate['gate_optimizer'].step()
+        score_std, score_mean = torch.std_mean(scores_prediction)
+        loss.append(loss.detach().item())
+        s_std.append(score_std.item())
+        s_mean.append(score_mean.item())
+    return sum(loss)/len(loss), sum(s_std)/len(s_std), sum(s_mean)/len(s_mean)
     
 
-def evaluate(agents_l, en_utils, actor_h, params, target_pos, gate_net, device):
+def evaluate(agents_l, en_utils, actor_h, params, target_pos, gates, device):
     labels = [str(i) for i in range(len(agents_l))]
     values = [0 for i in range(len(agents_l))]
     policy_params = params.policy_params
@@ -433,7 +442,7 @@ def evaluate(agents_l, en_utils, actor_h, params, target_pos, gate_net, device):
             while not done and t < episode_len:
                 t += 1
                 # action = actor_l(obs, goal).to(device)              
-                action = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True, steps=None, epsilon=0, ucb_lamda=0., gate=gate_net, option='gate')[0]
+                action = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True, steps=None, goal_dim=goal_dim, epsilon=0, ucb_lamda=0., gates=gates, option='gate')[0]
                 values[en_utils.cur_agent_ind] += 1
                 next_state, _, _, _ = env.step(action.detach().cpu())
                 next_state = Tensor(next_state).to(device)
@@ -460,10 +469,11 @@ def train(params):
         [step, episode_num_h,
          actor_eval_l, actor_target_l, actor_optimizer_l, critic_eval_l, critic_target_l, critic_optimizer_l, experience_buffer_l,
          actor_eval_h, actor_target_h, actor_optimizer_h, critic_eval_h, critic_target_h, critic_optimizer_h, experience_buffer_h] = create_rl_components(params, device)
-        en_agents, gate_buffer, gate_net, gate_optimizer = create_en_agents(params, device, en_utils.n_ensemble)
+        en_agents, gates = create_en_agents(params, device, en_utils.n_ensemble)
         
         # en_agents = [{'actor_eval_l':actor_eval_l, 'actor_target_l':actor_target_l, 'actor_optimizer_l':actor_optimizer_l,
         #                 'critic_eval_l':critic_eval_l, 'critic_target_l':critic_target_l, 'critic_optimizer_l':critic_optimizer_l}]
+        # gates = [{'gate_buffer': gate_buffer, 'gate_net': gate_net, 'gate_optimizer':gate_optimizer}]
         # > running utils
         [policy_params, env_name, max_goal, action_dim, goal_dim, max_action, expl_noise_std_l, expl_noise_std_h,
          c, episode_len, max_timestep, start_timestep, batch_size,
@@ -505,7 +515,7 @@ def train(params):
         else:
             expl_noise_action = np.random.normal(loc=0, scale=expl_noise_std_l, size=action_dim).astype(np.float32)
             # action = (actor_eval_l(state, goal).detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
-            a_tmp, mask = en_utils.en_pick_action(state, goal, en_agents, max_action, (t+1)%c==1, t, epsilon=0.9, ucb_lamda=10., gate=gate_net, option='gate')     # episode_timestep_h==1      (t+1)%c==1
+            a_tmp, mask = en_utils.en_pick_action(state, goal, en_agents, max_action, (t+1)%c==1, t, goal_dim, epsilon=0.9, ucb_lamda=10., gates=gates, option='gate')     # episode_timestep_h==1      (t+1)%c==1
             action = (a_tmp.detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
         # 2.2.2 interact environment
         next_state, _, _, info = env.step(action)
@@ -544,9 +554,8 @@ def train(params):
             # goal_hat, updated = off_policy_correction(en_agents[0]['actor_target_l'], action_sequence, state_sequence, goal_dim, goal_sequence[0], next_state, max_goal, device)
             state_arr, action_arr = torch.stack(state_sequence), torch.stack(action_sequence)
             experience_buffer_h.add(state_sequence[0], goal_sequence[0], episode_reward_h, next_state, done_h, state_arr, action_arr)
-            gate_labels = [gate_score_cal(state_sequence[0], next_state, goal_sequence[0], goal_dim) for _ in range(en_utils.n_ensemble)]
-            gate_labels = torch.tensor(gate_labels).to(device)
-            gate_buffer.add(state_sequence[0], goal_sequence[0], label=gate_labels)
+            gate_label = intri_reward
+            gates[en_utils.cur_agent_ind].add(state_sequence[0][:goal_dim], goal_sequence[0], label=gate_label)
             # if state_print_trigger.good2log(t, 500): print_cmd_hint(params=[state_sequence, goal_sequence, action_sequence, intri_reward_sequence, updated, goal_hat, reward_h_sequence], location='training_state')
             # 2.2.9 reset segment arguments & log (reward)
             state_sequence, action_sequence, intri_reward_sequence, goal_sequence, reward_h_sequence = [], [], [], [], []   
@@ -567,8 +576,8 @@ def train(params):
         if t >= start_timestep and (t + 1) % c == 0:
             target_q_h, critic_loss_h, actor_loss_h = \
                 step_update_h(experience_buffer_h, batch_size, total_it, actor_eval_h, actor_target_h, critic_eval_h, critic_target_h, critic_optimizer_h, actor_optimizer_h, en_agents[0]['actor_target_l'], params)
-        if t >= start_timestep and (t + 1) % c == 0:
-            gate_loss, gate_score_std, gate_score_mean = step_update_gate(gate_buffer, batch_size, total_it, gate_net, gate_optimizer, params)
+        if t >= start_timestep and (t + 1) % (3*c) == 0:
+            gate_loss, gate_score_std, gate_score_mean = step_update_gate(gates, batch_size, total_it, en_utils.cur_agent_ind, params)
         # 2.2.12 log training curve (inter_loss)
         if t >= start_timestep and t % log_interval == 0:
             record_logger(args=[target_q_l, critic_loss_l, actor_loss_l, target_q_h, critic_loss_h, actor_loss_h, gate_loss, gate_score_mean, gate_score_std], option='inter_loss', step=t-start_timestep)
@@ -590,7 +599,7 @@ def train(params):
         episode_timestep_h += 1
         # 2.2.15 save videos & checkpoints
         if save_video and video_log_trigger.good2log(t, video_interval):
-            log_video_hrl(env_name, en_agents, deepcopy(en_utils), actor_target_h, gate_net, params)     
+            log_video_hrl(env_name, en_agents, deepcopy(en_utils), actor_target_h, gates, params)     
             time_logger.sps(t)
             time_logger.time_spent()
             print("")
@@ -601,14 +610,14 @@ def train(params):
             #                 actor_target_h, critic_target_h, actor_optimizer_h, critic_optimizer_h, experience_buffer_h,
             #                 logger, params)
         if t > start_timestep and evalutil_logger.good2log(t, evaluation_interval):
-            success_rate = evaluate(en_agents, deepcopy(en_utils), actor_target_h, params, target_pos, gate_net, device)                 
+            success_rate = evaluate(en_agents, deepcopy(en_utils), actor_target_h, params, target_pos, gates, device)                 
     # 2.3 final log (episode videos)
     logger = [time_logger, state_print_trigger, video_log_trigger, checkpoint_logger, evalutil_logger, episode_num_h]
     # save_checkpoint(max_timestep, actor_target_l, critic_target_l, actor_optimizer_l, critic_optimizer_l, experience_buffer_l,      
     #                 actor_target_h, critic_target_h, actor_optimizer_h, critic_optimizer_h, experience_buffer_h,
     #                 logger, params)
     for i in range(3):
-        log_video_hrl(env_name, en_agents, actor_target_h, gate_net, params)         
+        log_video_hrl(env_name, en_agents, actor_target_h, gates, params)         
     print_cmd_hint(params=params, location='end_train')
 
 
