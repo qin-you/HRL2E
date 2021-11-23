@@ -225,7 +225,7 @@ def create_en_agents(params, device, n_en):
     gates = []
     for _ in range(n_en):
         gate_buffer = GateBuffer(int(params.policy_params.max_timestep / params.policy_params.c / 18) + 1, params.goal_dim, params.goal_dim, 1, params.use_cuda)
-        gate_net = Gate(state_dim+goal_dim, n_en).to(device)
+        gate_net = Gate(goal_dim+goal_dim, n_en).to(device)
         gate_optimizer = torch.optim.Adam(gate_net.parameters(), lr=policy_params.actor_lr) 
         temp = {'gate_buffer': gate_buffer, 'gate_net': gate_net, 'gate_optimizer':gate_optimizer}
         gates.append(temp)
