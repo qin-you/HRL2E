@@ -421,7 +421,7 @@ def step_update_gate(gates, batch_size, total_it, cur_ind, params):
         loss_list.append(loss.detach().item())
         s_std.append(score_std.item())
         s_mean.append(score_mean.item())
-    return sum(loss_list)/len(loss), sum(s_std)/len(s_std), sum(s_mean)/len(s_mean)
+    return sum(loss_list)/len(loss_list), sum(s_std)/len(s_std), sum(s_mean)/len(s_mean)
     
 
 def evaluate(agents_l, en_utils, actor_h, params, target_pos, gates, device):
