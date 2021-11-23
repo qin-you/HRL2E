@@ -555,7 +555,7 @@ def train(params):
             state_arr, action_arr = torch.stack(state_sequence), torch.stack(action_sequence)
             experience_buffer_h.add(state_sequence[0], goal_sequence[0], episode_reward_h, next_state, done_h, state_arr, action_arr)
             gate_label = intri_reward
-            gates[en_utils.cur_agent_ind].add(state_sequence[0][:goal_dim], goal_sequence[0], label=gate_label)
+            gates[en_utils.cur_agent_ind]['gate_buffer'].add(state_sequence[0][:goal_dim], goal_sequence[0], label=gate_label)
             # if state_print_trigger.good2log(t, 500): print_cmd_hint(params=[state_sequence, goal_sequence, action_sequence, intri_reward_sequence, updated, goal_hat, reward_h_sequence], location='training_state')
             # 2.2.9 reset segment arguments & log (reward)
             state_sequence, action_sequence, intri_reward_sequence, goal_sequence, reward_h_sequence = [], [], [], [], []   
