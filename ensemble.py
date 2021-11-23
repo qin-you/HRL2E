@@ -66,7 +66,7 @@ class Ensemble_utils:
             elif option == 'gate':                
                 if gate_pretrain_steps < self.gate_pretrain_threshold: epsilon = 1
                 if torch.rand(1).item() < 1-epsilon:
-                    scores = [gate(torch.cat((state.squeeze()[:goal_dim], goal.squeeze()))).squeeze() for gate in [gates[i]['gate_net'] for i in range(self.n_ensemble)]]
+                    scores = [gate(torch.cat((state.squeeze()[:goal_dim], goal.squeeze()))).detach().squeeze() for gate in [gates[i]['gate_net'] for i in range(self.n_ensemble)]]
                     ind = torch.tensor(scores).squeeze().argmax().item()
                 else:
                     ind = torch.randint(0,high=self.n_ensemble, size=(1,)).item()
