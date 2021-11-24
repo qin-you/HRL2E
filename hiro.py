@@ -178,9 +178,9 @@ def record_logger(args, option, step):
         if target_q_h is not None: wandb.log({'target_q high': torch.mean(target_q_h).squeeze()}, step=step)
         if critic_loss_h is not None: wandb.log({'critic_loss high': torch.mean(critic_loss_h).squeeze()}, step=step)
         if actor_loss_h is not None: wandb.log({'actor_loss high': torch.mean(actor_loss_h).squeeze()}, step=step)
-        if gate_loss is not None: wandb.log({'gate_loss': torch.mean(gate_loss).squeeze()}, step=step)
-        if gate_score_mean is not None: wandb.log({'gate_score_mean': torch.mean(gate_score_mean).squeeze()}, step=step)
-        if gate_score_std is not None: wandb.log({'gate_score_std': torch.mean(gate_score_std)}, step=step)
+        if gate_loss is not None: wandb.log({'gate_loss': gate_loss}, step=step)
+        if gate_score_mean is not None: wandb.log({'gate_score_mean': gate_score_mean}, step=step)
+        if gate_score_std is not None: wandb.log({'gate_score_std': gate_score_std}, step=step)
     elif option == "reward":
         episode_reward_l, episode_reward_h = args[:]
         wandb.log({'episode reward low': episode_reward_l}, step=step)
@@ -350,6 +350,7 @@ def step_update_l(experience_buffer, batch_size, total_it, actor_eval, actor_tar
     critic_optimizer.zero_grad()
     critic_loss.backward()
     critic_optimizer.step()
+    
     # delayed policy update
     actor_loss = None
     if total_it[0] % policy_params.policy_freq == 0:
