@@ -411,7 +411,7 @@ def step_update_h(experience_buffer, batch_size, total_it, actor_eval, actor_tar
 def step_update_gate(gates, batch_size, total_it, cur_ind, params):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if params.use_cuda else "cpu"
     loss_list, s_std, s_mean = [], [], []
-    print([buf.offset for buf in [gates[i]['gate_buffer'] for i in range(3)]])
+    # print([buf.offset for buf in [gates[i]['gate_buffer'] for i in range(3)]])
     for gate in gates:
         X, y = gate['gate_buffer'].sample(batch_size)
         scores_prediction = gate['gate_net'](X)
