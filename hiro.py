@@ -312,8 +312,9 @@ def off_policy_correction(actor, action_sequence, state_sequence, goal_dim, goal
     candidates.append(goal.cpu())
     # select maximal
     candidates = torch.stack(candidates).to(device)
-    surr_prob = [-functional.mse_loss(action_sequence, actor(state_sequence, state_sequence[0][:goal_dim] + candidate - state_sequence[:, :goal_dim])) for candidate in candidates]
-    index = int(np.argmax(surr_prob))
+    surr_prob = [-functional.mse_loss(action_sequence, actor(state_sequence, state_sequence[0][:goal_dim] + candidate - state_sequence[:, :goal_dim])).squeeze() for candidate in candidates]
+    index = torch.tensor(surr_prob).argmax().item()
+    # index = int(np.argmax(surr_prob))
     updated = (index != 9)
     goal_hat = candidates[index]
     return goal_hat.cpu(), updated
