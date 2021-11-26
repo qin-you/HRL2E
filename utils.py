@@ -126,6 +126,7 @@ def log_video(env_name, actor):
 
 
 def log_video_hrl(env_name, agents_l, en_utils, actor_high, gates, params):
+    return
     # 
     # actor_low_list = [copy.deepcopy(actor_l).cpu for actor_l in [agent['actor_target_l'] for agent in agents_l]]
     # actor_low = copy.deepcopy(actor_low).cpu()
