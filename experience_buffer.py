@@ -114,7 +114,7 @@ class ExperienceBufferLow:
         if self.if_full:
             self.offset = (self.offset + 1) % self.capacity
         else:
-            self.if_full = (self.offset + 1) % self.capacity == self.offset + 1
+            self.if_full = (self.offset + 1) == self.capacity 
             self.offset = (self.offset + 1) % self.capacity
 
 
@@ -174,7 +174,7 @@ class ExperienceBufferHigh:
         if self.if_full:
             self.offset = (self.offset + 1) % self.capacity
         else:
-            self.if_full = (self.offset + 1) % self.capacity == self.offset + 1
+            self.if_full = (self.offset + 1) == self.capacity 
             self.offset = (self.offset + 1) % self.capacity
 
 class GateBuffer:
@@ -210,6 +210,6 @@ class GateBuffer:
         if self.if_full:
             self.offset = (self.offset + 1) % self.capacity
         else:
-            self.if_full = (self.offset + 1) % self.capacity == self.offset + 1
+            self.if_full = (self.offset + 1) == self.capacity 
             self.offset = (self.offset + 1) % self.capacity
         
