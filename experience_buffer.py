@@ -75,6 +75,7 @@ class ExperienceBufferLow:
         self.next_goal = torch.zeros(capacity, goal_dim)
         self.done = torch.zeros(capacity, 1)
         self.mask = torch.zeros(capacity, mask_dim)
+        self.if_full = False
         # probe device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if use_cuda else "cpu"
         # self.device = "cpu"
@@ -90,10 +91,14 @@ class ExperienceBufferLow:
         self.next_goal[ind] = next_goal.cpu()
         self.done[ind] = done.cpu()
         self.mask[ind] = _mask.cpu()
-        self.offset = (self.offset + 1) % self.capacity
+        self.check_after_add()
+        # self.offset = (self.offset + 1) % self.capacity
 
     def sample(self, batch_size):
-        ind = np.random.randint(0, self. offset + 1, size=batch_size)
+        if self.if_full:
+            ind = np.random.randint(0, self.capacity, size=batch_size)
+        else:
+            ind = np.random.randint(0, self.offset + 1, size=batch_size)
         return (
             self.state[ind].to(self.device),
             self.goal[ind].to(self.device),
@@ -104,6 +109,13 @@ class ExperienceBufferLow:
             self.done[ind].to(self.device),
             self.mask[ind].to(self.device)
         )
+        
+    def check_after_add(self):
+        if self.if_full:
+            self.offset = (self.offset + 1) % self.capacity
+        else:
+            self.if_full = (self.offset + 1) % self.capacity == self.offset + 1
+            self.offset = (self.offset + 1) % self.capacity
 
 
 class ExperienceBufferHigh:
@@ -125,6 +137,7 @@ class ExperienceBufferHigh:
         self.done = torch.zeros(capacity, 1)
         self.s_seq = torch.zeros(capacity, c, state_dim)     
         self.a_seq = torch.zeros(capacity, c, action_dim)
+        self.if_full = False
         # probe device
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if use_cuda else "cpu"
         # self.device = "cpu"
@@ -139,10 +152,14 @@ class ExperienceBufferHigh:
         self.done[ind] = done.cpu()
         self.s_seq[ind] = s_arr.cpu()
         self.a_seq[ind] = a_arr.cpu()
-        self.offset = (self.offset + 1) % self.capacity
+        # self.offset = (self.offset + 1) % self.capacity
+        self.check_after_add()
 
     def sample(self, batch_size):
-        ind = np.random.randint(0, self. offset + 1, size=batch_size)
+        if self.if_full:
+            ind = np.random.randint(0, self.capacity, size=batch_size)
+        else:
+            ind = np.random.randint(0, self.offset + 1, size=batch_size)
         return (
             self.state_start[ind].to(self.device),
             self.goal_start[ind].to(self.device),
@@ -152,6 +169,13 @@ class ExperienceBufferHigh:
             self.s_seq[ind].to(self.device),
             self.a_seq[ind].to(self.device)
         )
+        
+    def check_after_add(self):
+        if self.if_full:
+            self.offset = (self.offset + 1) % self.capacity
+        else:
+            self.if_full = (self.offset + 1) % self.capacity == self.offset + 1
+            self.offset = (self.offset + 1) % self.capacity
 
 class GateBuffer:
     def __init__(self, capacity, hat_state_dim, goal_dim, label_dim, use_cuda) -> None:
@@ -169,12 +193,23 @@ class GateBuffer:
         ind = self.offset
         self.X[ind] = torch.cat((hat_state, goal)).cpu()
         self.y[ind] = label.cpu()
-        self.offset = (self.offset + 1) % self.capacity
+        # self.offset = (self.offset + 1) % self.capacity
+        self.check_after_add()
         
     def sample(self, batch_size):
-        ind = np.random.randint(0, self. offset + 1, size=batch_size)
+        if self.if_full:
+            ind = np.random.randint(0, self.capacity, size=batch_size)
+        else:
+            ind = np.random.randint(0, self.offset + 1, size=batch_size)
         return (
             self.X[ind].to(self.device),
             self.y[ind].to(self.device)
         )
+        
+    def check_after_add(self):
+        if self.if_full:
+            self.offset = (self.offset + 1) % self.capacity
+        else:
+            self.if_full = (self.offset + 1) % self.capacity == self.offset + 1
+            self.offset = (self.offset + 1) % self.capacity
         
