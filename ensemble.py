@@ -111,7 +111,7 @@ class Ensemble_utils:
             # update critic q_evaluate
             q_eval_1, q_eval_2 = critic_eval(state, goal, action)
             # critic_loss = functional.mse_loss(q_eval_1, y) + functional.mse_loss(q_eval_2, y)
-            critic_loss = functional.mse_loss(mask[:,ind]*q_eval_1, mask[:,(ind,)]*y) + functional.mse_loss(mask[:,(ind,)]*q_eval_2, mask[:,ind]*y)
+            critic_loss = functional.mse_loss(mask[:,(ind,)]*q_eval_1, mask[:,(ind,)]*y) + functional.mse_loss(mask[:,(ind,)]*q_eval_2, mask[:,(ind,)]*y)
             critic_optimizer.zero_grad()
             critic_loss.backward()
             critic_optimizer.step()
