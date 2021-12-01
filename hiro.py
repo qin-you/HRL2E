@@ -446,7 +446,7 @@ def evaluate(agents_l, en_utils, actor_h, params, target_pos, gates, device):
             while not done and t < episode_len:
                 t += 1
                 # action = actor_l(obs, goal).to(device)              
-                action = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True, steps=None, goal_dim=goal_dim, epsilon=0, ucb_lamda=0., gates=gates, option='ucb', gate_pretrain_steps=math.inf)[0]
+                action = en_utils.en_pick_action(state, goal, agents_l, params.policy_params.max_action, change=True, steps=None, goal_dim=goal_dim, epsilon=0, ucb_lamda=0., gates=gates, option='e-greedy', gate_pretrain_steps=math.inf)[0]
                 values[en_utils.cur_agent_ind] += 1
                 next_state, _, _, _ = env.step(action.detach().cpu())
                 next_state = Tensor(next_state).to(device)
@@ -519,7 +519,7 @@ def train(params):
         else:
             expl_noise_action = np.random.normal(loc=0, scale=expl_noise_std_l, size=action_dim).astype(np.float32)
             # action = (actor_eval_l(state, goal).detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
-            a_tmp, mask = en_utils.en_pick_action(state, goal, en_agents, max_action, (t+1)%c==1, t, goal_dim, epsilon=0.5, ucb_lamda=1., gates=gates, option='ucb',gate_pretrain_steps=t-start_timestep)     # episode_timestep_h==1      (t+1)%c==1
+            a_tmp, mask = en_utils.en_pick_action(state, goal, en_agents, max_action, (t+1)%c==1, t, goal_dim, epsilon=0.5, ucb_lamda=1., gates=gates, option='e-greedy',gate_pretrain_steps=t-start_timestep)     # episode_timestep_h==1      (t+1)%c==1
             action = (a_tmp.detach().cpu() + expl_noise_action).clamp(-max_action, max_action).squeeze()
         # 2.2.2 interact environment
         next_state, _, _, info = env.step(action)
