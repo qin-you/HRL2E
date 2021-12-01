@@ -2,7 +2,7 @@
 Networks
 """
 
-from typing import ForwardRef
+# from typing import ForwardRef
 import torch
 import torch.nn as nn
 
