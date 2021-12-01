@@ -102,8 +102,11 @@ class Ensemble_utils:
                     .clamp(-policy_params.policy_noise_clip, policy_params.policy_noise_clip).to(device)
                 next_action = (actor_target(next_state, next_goal) + policy_noise).clamp(-policy_params.max_action, policy_params.max_action)
                 # clipped double Q-learning
-                q_target_1, q_target_2 = critic_target(next_state, next_goal, next_action)
-                q_target = torch.min(q_target_1, q_target_2)
+                q_target_list = [machine(next_state, next_goal, next_action) for machine in [ag['critic_target_l'] for ag in agents]]
+                q_target_list = [torch.min(*tmp) for tmp in q_target_list]
+                q_target = torch.cat(q_target_list, dim=1).sum(dim=1) / q_target_list.shape[1]
+                # q_target_1, q_target_2 = critic_target(next_state, next_goal, next_action)
+                # q_target = torch.min(q_target_1, q_target_2)
                 y = policy_params.reward_scal_l * reward + (1 - done) * policy_params.discount * q_target
             # update critic q_evaluate
             q_eval_1, q_eval_2 = critic_eval(state, goal, action)
