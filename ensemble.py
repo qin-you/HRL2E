@@ -104,7 +104,7 @@ class Ensemble_utils:
                 # clipped double Q-learning
                 q_target_list = [machine(next_state, next_goal, next_action) for machine in [ag['critic_target_l'] for ag in agents]]
                 q_target_list = [torch.min(*tmp) for tmp in q_target_list]
-                q_target = torch.cat(q_target_list, dim=1).sum(dim=1) / q_target_list.shape[1]
+                q_target = torch.cat(q_target_list, dim=1).sum(dim=1) / len(q_target_list)
                 # q_target_1, q_target_2 = critic_target(next_state, next_goal, next_action)
                 # q_target = torch.min(q_target_1, q_target_2)
                 y = policy_params.reward_scal_l * reward + (1 - done) * policy_params.discount * q_target
