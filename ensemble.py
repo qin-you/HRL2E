@@ -144,7 +144,7 @@ class Ensemble_utils:
         policy_params = params.policy_params
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu") if params.use_cuda else "cpu"
         total_it[0] += 1
-        agent, ind = agents, 0
+        agent, ind = agents[0], 0
         actor_eval = agent['actor_eval_l']
         actor_target = agent['actor_target_l']
         actor_optimizer = agent['actor_optimizer_l']
