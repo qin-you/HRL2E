@@ -151,7 +151,7 @@ class Ensemble_utils:
         critic_eval = agent['critic_eval_l']
         critic_target = agent['critic_target_l']
         critic_optimizer = agent['critic_optimizer_l']
-        for _ in range(3):
+        for _ in range(1):
             state, goal, action, reward, next_state, next_goal, done, mask = experience_buffer.sample(batch_size)
             with torch.no_grad():
                 # select action according to policy and add clipped noise
