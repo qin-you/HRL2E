@@ -211,7 +211,8 @@ def create_rl_components(params, device):
     critic_eval_h = CriticHigh(state_dim, goal_dim).to(device)
     critic_target_h = copy.deepcopy(critic_eval_h).to(device)
     critic_optimizer_h = torch.optim.Adam(critic_eval_h.parameters(), lr=policy_params.critic_lr)
-    experience_buffer_h = ExperienceBufferHigh(int(policy_params.max_timestep / policy_params.c / 3) + 1, state_dim, goal_dim, params.use_cuda, policy_params.c, action_dim)
+    # experience_buffer_h = ExperienceBufferHigh(int(policy_params.max_timestep / policy_params.c / 3) + 1, state_dim, goal_dim, params.use_cuda, policy_params.c, action_dim)
+    experience_buffer_h = ExperienceBufferHigh(int(policy_params.max_timestep / policy_params.c ) + 1, state_dim, goal_dim, params.use_cuda, policy_params.c, action_dim)
     
     return [step, episode_num_h,
             actor_eval_l, actor_target_l, actor_optimizer_l, critic_eval_l, critic_target_l, critic_optimizer_l, experience_buffer_l,
